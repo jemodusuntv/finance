@@ -233,7 +233,7 @@
 
   <nav id="navTabs">
     <button data-tab="dashboard" class="active">Dashboard</button>
-    <button data-tab="transaksi">Transaksi</button>
+    <button data-tab="transaksi">Pengeluaran</button>
     <button data-tab="bulanan">Pendapatan Bulanan</button>
     <button data-tab="rekap">Rekap</button>
   </nav>
@@ -247,28 +247,22 @@
       <div class="cards" id="dashCards"></div>
       <section class="panel">
         <h2>Arus Kas per Bulan</h2>
-        <div class="sub">Perbandingan uang masuk vs keluar, 6 bulan terakhir</div>
+        <div class="sub">Perbandingan pendapatan vs pengeluaran, 6 bulan terakhir</div>
         <div class="chart-wrap"><canvas id="chartDash"></canvas></div>
       </section>
       <section class="panel">
-        <h2>Transaksi Terbaru</h2>
+        <h2>Pengeluaran Terbaru</h2>
         <div id="recentList"></div>
       </section>
     </div>
 
-    <!-- TRANSAKSI -->
+    <!-- PENGELUARAN -->
     <div class="tab-panel hidden" id="tab-transaksi">
       <section class="panel">
-        <h2>Tambah Transaksi</h2>
-        <div class="sub">Catat uang masuk atau keluar. Tempel link video YouTube kalau transaksi ini terkait video tertentu (misal biaya pembuatan video).</div>
+        <h2>Tambah Pengeluaran</h2>
+        <div class="sub">Catat setiap biaya/pengeluaran channel. Tempel link video YouTube kalau pengeluaran ini terkait video tertentu (misal biaya pembuatan video).</div>
         <form class="grid" id="formTrx">
           <div><label>Tanggal</label><input type="date" id="trxTanggal" required></div>
-          <div><label>Tipe</label>
-            <select id="trxTipe">
-              <option value="masuk">Masuk</option>
-              <option value="keluar">Keluar</option>
-            </select>
-          </div>
           <div><label>Kategori</label>
             <select id="trxKategori"></select>
           </div>
@@ -278,30 +272,31 @@
             <datalist id="videoLinkSuggestions"></datalist>
           </div>
           <div style="grid-column:1/-1;"><label>Keterangan</label><input type="text" id="trxKet" placeholder="cth: Sewa perahu untuk shooting sidat"></div>
-          <div><button class="btn gold" type="submit">Simpan Transaksi</button></div>
+          <div><button class="btn gold" type="submit">Simpan Pengeluaran</button></div>
         </form>
       </section>
       <section class="panel">
-        <h2>Riwayat Transaksi</h2>
+        <h2>Riwayat Pengeluaran</h2>
         <div class="sub" id="trxCount"></div>
         <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Tanggal</th><th>Tipe</th><th>Kategori</th><th>Keterangan</th><th>Video</th><th style="text-align:right;">Jumlah</th><th></th></tr></thead>
+          <thead><tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Video</th><th style="text-align:right;">Jumlah</th><th></th></tr></thead>
           <tbody id="trxTableBody"></tbody>
         </table>
         </div>
       </section>
       <section class="panel">
         <h2>Rekap per Video</h2>
-        <div class="sub">Otomatis dikelompokkan dari transaksi yang ditautkan ke link video yang sama</div>
+        <div class="sub">Total biaya yang sudah dikeluarkan untuk tiap video, dikelompokkan dari link yang sama</div>
         <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Video</th><th style="text-align:right;">Biaya</th><th style="text-align:right;">Pendapatan</th><th style="text-align:right;">Untung/Rugi</th><th style="text-align:right;">Transaksi</th></tr></thead>
+          <thead><tr><th>Video</th><th style="text-align:right;">Total Biaya</th><th style="text-align:right;">Jumlah Pengeluaran</th></tr></thead>
           <tbody id="videoRekapBody"></tbody>
         </table>
         </div>
       </section>
     </div>
+
 
     <!-- BULANAN -->
     <div class="tab-panel hidden" id="tab-bulanan">
@@ -353,10 +348,7 @@
 <script>
 let DB = { transaksi: [], bulanan: [] };
 
-const KATEGORI = {
-  masuk: ["AdSense","Sponsor","Affiliate","Jual Produk","Lainnya"],
-  keluar: ["Modal Produksi","Peralatan","Transportasi","Editing/Jasa","Operasional","Lainnya"]
-};
+const KATEGORI_KELUAR = ["Modal Produksi","Peralatan","Transportasi","Editing/Jasa","Operasional","Lainnya"];
 
 const SUPABASE_URL = 'https://uduofeynrpxngcydftox.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pJ2-kZrnCYInwoJrjcfr0w_aBSaXVDG';
@@ -489,18 +481,14 @@ function allMonths(){
 
 function monthlyMasukKeluar(ym){
   let masuk = 0, keluar = 0;
-  DB.transaksi.forEach(t=>{
-    if(monthKey(t.tanggal)===ym){
-      if(t.tipe==='masuk') masuk += t.jumlah; else keluar += t.jumlah;
-    }
-  });
+  DB.transaksi.forEach(t=>{ if(monthKey(t.tanggal)===ym) keluar += t.jumlah; });
   DB.bulanan.forEach(b=>{ if(b.bulan===ym) masuk += b.jumlah; });
   return {masuk, keluar};
 }
 
 function totalAll(){
-  let masuk=0, keluar=0;
-  DB.transaksi.forEach(t=> t.tipe==='masuk' ? masuk+=t.jumlah : keluar+=t.jumlah);
+  let keluar=0, masuk=0;
+  DB.transaksi.forEach(t=> keluar+=t.jumlah);
   DB.bulanan.forEach(b=> masuk+=b.jumlah);
   return {masuk, keluar, saldo: masuk-keluar};
 }
@@ -509,8 +497,8 @@ function rekapPerVideo(){
   const map = {};
   DB.transaksi.forEach(t=>{
     if(!t.videoLink) return;
-    if(!map[t.videoLink]) map[t.videoLink] = { link:t.videoLink, masuk:0, keluar:0, count:0, lastDate:t.tanggal };
-    if(t.tipe==='masuk') map[t.videoLink].masuk += t.jumlah; else map[t.videoLink].keluar += t.jumlah;
+    if(!map[t.videoLink]) map[t.videoLink] = { link:t.videoLink, biaya:0, count:0, lastDate:t.tanggal };
+    map[t.videoLink].biaya += t.jumlah;
     map[t.videoLink].count++;
     if(t.tanggal > map[t.videoLink].lastDate) map[t.videoLink].lastDate = t.tanggal;
   });
@@ -553,23 +541,21 @@ function renderDashboard(){
   const recent = [...DB.transaksi].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,6);
   const recentDiv = document.getElementById('recentList');
   if(recent.length===0){
-    recentDiv.innerHTML = '<div class="empty">Belum ada transaksi. Tambahkan di tab Transaksi.</div>';
+    recentDiv.innerHTML = '<div class="empty">Belum ada pengeluaran. Tambahkan di tab Pengeluaran.</div>';
   } else {
     recentDiv.innerHTML = `<table><tbody>` + recent.map(t=>`
       <tr>
         <td class="mono" style="white-space:nowrap;">${t.tanggal}</td>
-        <td><span class="tag ${t.tipe}">${t.tipe==='masuk'?'Masuk':'Keluar'}</span></td>
         <td>${t.kategori}${t.keterangan?' — '+t.keterangan:''}</td>
-        <td class="mono" style="text-align:right; color:${t.tipe==='masuk'?'var(--gold-deep)':'var(--rust)'};">${rp(t.jumlah)}</td>
+        <td class="mono" style="text-align:right; color:var(--rust);">${rp(t.jumlah)}</td>
       </tr>`).join('') + `</tbody></table>`;
   }
 }
 
-// ---------- TRANSAKSI ----------
+// ---------- PENGELUARAN ----------
 function refreshKategoriOptions(){
-  const tipe = document.getElementById('trxTipe').value;
   const sel = document.getElementById('trxKategori');
-  sel.innerHTML = KATEGORI[tipe].map(k=>`<option value="${k}">${k}</option>`).join('');
+  sel.innerHTML = KATEGORI_KELUAR.map(k=>`<option value="${k}">${k}</option>`).join('');
 }
 function refreshVideoLinkSuggestions(){
   const list = document.getElementById('videoLinkSuggestions');
@@ -577,14 +563,12 @@ function refreshVideoLinkSuggestions(){
   list.innerHTML = links.map(l=>`<option value="${l}"></option>`).join('');
 }
 
-document.getElementById('trxTipe').addEventListener('change', refreshKategoriOptions);
-
 document.getElementById('formTrx').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const item = {
     id: uid(),
     tanggal: document.getElementById('trxTanggal').value,
-    tipe: document.getElementById('trxTipe').value,
+    tipe: 'keluar',
     kategori: document.getElementById('trxKategori').value,
     jumlah: parseFloat(document.getElementById('trxJumlah').value)||0,
     keterangan: document.getElementById('trxKet').value.trim(),
@@ -603,17 +587,16 @@ document.getElementById('formTrx').addEventListener('submit', async (e)=>{
 function renderTransaksi(){
   const tbody = document.getElementById('trxTableBody');
   const sorted = [...DB.transaksi].sort((a,b)=>b.tanggal.localeCompare(a.tanggal));
-  document.getElementById('trxCount').textContent = sorted.length + ' transaksi tercatat';
+  document.getElementById('trxCount').textContent = sorted.length + ' pengeluaran tercatat';
   if(sorted.length===0){
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">Belum ada transaksi</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Belum ada pengeluaran</td></tr>`;
   } else {
     tbody.innerHTML = sorted.map(t=>`<tr>
       <td class="mono">${t.tanggal}</td>
-      <td><span class="tag ${t.tipe}">${t.tipe==='masuk'?'Masuk':'Keluar'}</span></td>
       <td>${t.kategori}</td>
       <td>${t.keterangan||'—'}</td>
       <td>${t.videoLink ? `<a class="video-link" href="${t.videoLink}" target="_blank" rel="noopener">${t.videoLink}</a>` : '—'}</td>
-      <td class="mono" style="text-align:right; color:${t.tipe==='masuk'?'var(--gold-deep)':'var(--rust)'};">${rp(t.jumlah)}</td>
+      <td class="mono" style="text-align:right; color:var(--rust);">${rp(t.jumlah)}</td>
       <td><button class="btn ghost" data-del-trx="${t.id}">Hapus</button></td>
     </tr>`).join('');
   }
@@ -634,19 +617,14 @@ function renderVideoRekap(){
   const tbody = document.getElementById('videoRekapBody');
   const rows = rekapPerVideo();
   if(rows.length===0){
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">Belum ada transaksi yang ditautkan ke video</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" class="empty">Belum ada pengeluaran yang ditautkan ke video</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map(r=>{
-    const labaRugi = r.masuk - r.keluar;
-    return `<tr>
+  tbody.innerHTML = rows.map(r=>`<tr>
       <td><a class="video-link" href="${r.link}" target="_blank" rel="noopener">${r.link}</a></td>
-      <td class="mono" style="text-align:right;color:var(--rust);">${rp(r.keluar)}</td>
-      <td class="mono" style="text-align:right;color:var(--gold-deep);">${rp(r.masuk)}</td>
-      <td class="mono" style="text-align:right; font-weight:600; color:${labaRugi>=0?'var(--gold-deep)':'var(--rust)'};">${rp(labaRugi)}</td>
+      <td class="mono" style="text-align:right;color:var(--rust);">${rp(r.biaya)}</td>
       <td class="mono" style="text-align:right;">${r.count}</td>
-    </tr>`;
-  }).join('');
+    </tr>`).join('');
 }
 
 // ---------- BULANAN ----------
