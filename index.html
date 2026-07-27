@@ -446,17 +446,13 @@ async function deleteBulananRow(id){
 }
 
 // ---------- PIN LOCK ----------
-const UNLOCK_KEY = 'jdtvfinance_unlocked_until';
-const UNLOCK_DURATION_MS = 12 * 60 * 60 * 1000; // 12 jam
+const UNLOCK_KEY = 'jdtvfinance_unlocked';
 
 function isStillUnlocked(){
-  try{
-    const until = parseInt(localStorage.getItem(UNLOCK_KEY) || '0', 10);
-    return until > Date.now();
-  }catch(e){ return false; }
+  try{ return sessionStorage.getItem(UNLOCK_KEY) === '1'; }catch(e){ return false; }
 }
 function rememberUnlocked(){
-  try{ localStorage.setItem(UNLOCK_KEY, String(Date.now() + UNLOCK_DURATION_MS)); }catch(e){}
+  try{ sessionStorage.setItem(UNLOCK_KEY, '1'); }catch(e){}
 }
 function openApp(){
   document.getElementById('lockScreen').classList.add('hidden');
