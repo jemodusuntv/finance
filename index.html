@@ -121,6 +121,9 @@
     align-items:end;
     margin-bottom:6px;
   }
+  @media(max-width:640px){
+    form.grid{ grid-template-columns:1fr; }
+  }
   label{ font-size:12px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:.03em; }
   input,select,textarea{
     width:100%;
@@ -162,6 +165,26 @@
   }
   td{ padding:9px 8px; font-size:13.5px; border-bottom:1px solid var(--line); vertical-align:top; }
   tr:hover td{ background:var(--paper-alt); }
+
+  /* di layar sempit, ubah tabel jadi kartu bertumpuk supaya tidak perlu geser ke samping */
+  @media(max-width:700px){
+    table.responsive thead{ display:none; }
+    table.responsive, table.responsive tbody, table.responsive tr, table.responsive td{ display:block; width:100%; }
+    table.responsive tr{
+      border:1px solid var(--line); border-radius:10px; margin-bottom:10px; padding:6px 10px;
+      background:#fff;
+    }
+    table.responsive tr:hover td{ background:transparent; }
+    table.responsive td{
+      border-bottom:none; padding:6px 0; display:flex; justify-content:space-between; align-items:center; gap:10px; text-align:right;
+    }
+    table.responsive td:before{
+      content:attr(data-label); font-size:11px; font-weight:600; text-transform:uppercase;
+      letter-spacing:.03em; color:var(--ink-soft); text-align:left; flex-shrink:0;
+    }
+    table.responsive td.empty{ display:block; text-align:center; }
+    table.responsive td.empty:before{ content:none; }
+  }
   .tag{
     display:inline-block;
     padding:2px 8px;
@@ -270,7 +293,7 @@
         <h2>Riwayat Pengeluaran</h2>
         <div class="sub" id="trxCount"></div>
         <div style="overflow-x:auto;">
-        <table>
+        <table class="responsive">
           <thead><tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Video</th><th style="text-align:right;">Jumlah</th><th></th></tr></thead>
           <tbody id="trxTableBody"></tbody>
         </table>
@@ -280,7 +303,7 @@
         <h2>Rekap per Video</h2>
         <div class="sub">Total biaya yang sudah dikeluarkan untuk tiap video, dikelompokkan dari link yang sama</div>
         <div style="overflow-x:auto;">
-        <table>
+        <table class="responsive">
           <thead><tr><th>Video</th><th style="text-align:right;">Total Biaya</th><th style="text-align:right;">Jumlah Pengeluaran</th></tr></thead>
           <tbody id="videoRekapBody"></tbody>
         </table>
@@ -305,7 +328,7 @@
       <section class="panel">
         <h2>Riwayat Pendapatan Bulanan</h2>
         <div style="overflow-x:auto;">
-        <table>
+        <table class="responsive">
           <thead><tr><th>Bulan</th><th>Sumber</th><th>Catatan</th><th style="text-align:right;">Jumlah</th><th></th></tr></thead>
           <tbody id="bulanTableBody"></tbody>
         </table>
@@ -319,7 +342,7 @@
         <h2>Rekap Untung Rugi per Bulan</h2>
         <div class="sub">Total masuk (transaksi + pendapatan bulanan) dikurangi total keluar</div>
         <div style="overflow-x:auto;">
-        <table>
+        <table class="responsive">
           <thead><tr><th>Bulan</th><th style="text-align:right;">Masuk</th><th style="text-align:right;">Keluar</th><th style="text-align:right;">Untung/Rugi</th></tr></thead>
           <tbody id="rekapTableBody"></tbody>
         </table>
@@ -534,11 +557,11 @@ function renderDashboard(){
   if(recent.length===0){
     recentDiv.innerHTML = '<div class="empty">Belum ada pengeluaran. Tambahkan di tab Pengeluaran.</div>';
   } else {
-    recentDiv.innerHTML = `<table><tbody>` + recent.map(t=>`
+    recentDiv.innerHTML = `<table class="responsive"><tbody>` + recent.map(t=>`
       <tr>
-        <td class="mono" style="white-space:nowrap;">${t.tanggal}</td>
-        <td>${t.kategori}${t.keterangan?' — '+t.keterangan:''}</td>
-        <td class="mono" style="text-align:right; color:var(--rust);">${rp(t.jumlah)}</td>
+        <td class="mono" data-label="Tanggal" style="white-space:nowrap;">${t.tanggal}</td>
+        <td data-label="Keterangan">${t.kategori}${t.keterangan?' — '+t.keterangan:''}</td>
+        <td class="mono" data-label="Jumlah" style="text-align:right; color:var(--rust);">${rp(t.jumlah)}</td>
       </tr>`).join('') + `</tbody></table>`;
   }
 }
@@ -583,12 +606,12 @@ function renderTransaksi(){
     tbody.innerHTML = `<tr><td colspan="6" class="empty">Belum ada pengeluaran</td></tr>`;
   } else {
     tbody.innerHTML = sorted.map(t=>`<tr>
-      <td class="mono">${t.tanggal}</td>
-      <td>${t.kategori}</td>
-      <td>${t.keterangan||'—'}</td>
-      <td>${t.videoLink ? `<a class="video-link" href="${t.videoLink}" target="_blank" rel="noopener">${t.videoLink}</a>` : '—'}</td>
-      <td class="mono" style="text-align:right; color:var(--rust);">${rp(t.jumlah)}</td>
-      <td><button class="btn ghost" data-del-trx="${t.id}">Hapus</button></td>
+      <td class="mono" data-label="Tanggal">${t.tanggal}</td>
+      <td data-label="Kategori">${t.kategori}</td>
+      <td data-label="Keterangan">${t.keterangan||'—'}</td>
+      <td data-label="Video">${t.videoLink ? `<a class="video-link" href="${t.videoLink}" target="_blank" rel="noopener">${t.videoLink}</a>` : '—'}</td>
+      <td class="mono" data-label="Jumlah" style="text-align:right; color:var(--rust);">${rp(t.jumlah)}</td>
+      <td data-label=""><button class="btn ghost" data-del-trx="${t.id}">Hapus</button></td>
     </tr>`).join('');
   }
   renderVideoRekap();
@@ -612,9 +635,9 @@ function renderVideoRekap(){
     return;
   }
   tbody.innerHTML = rows.map(r=>`<tr>
-      <td><a class="video-link" href="${r.link}" target="_blank" rel="noopener">${r.link}</a></td>
-      <td class="mono" style="text-align:right;color:var(--rust);">${rp(r.biaya)}</td>
-      <td class="mono" style="text-align:right;">${r.count}</td>
+      <td data-label="Video"><a class="video-link" href="${r.link}" target="_blank" rel="noopener">${r.link}</a></td>
+      <td class="mono" data-label="Total Biaya" style="text-align:right;color:var(--rust);">${rp(r.biaya)}</td>
+      <td class="mono" data-label="Jumlah Pengeluaran" style="text-align:right;">${r.count}</td>
     </tr>`).join('');
 }
 
@@ -644,11 +667,11 @@ function renderBulanan(){
   }
   tbody.innerHTML = sorted.map(b=>`
     <tr>
-      <td class="mono">${monthLabel(b.bulan)}</td>
-      <td>${b.sumber}</td>
-      <td>${b.catatan||'—'}</td>
-      <td class="mono" style="text-align:right; color:var(--gold-deep);">${rp(b.jumlah)}</td>
-      <td><button class="btn ghost" data-del-bul="${b.id}">Hapus</button></td>
+      <td class="mono" data-label="Bulan">${monthLabel(b.bulan)}</td>
+      <td data-label="Sumber">${b.sumber}</td>
+      <td data-label="Catatan">${b.catatan||'—'}</td>
+      <td class="mono" data-label="Jumlah" style="text-align:right; color:var(--gold-deep);">${rp(b.jumlah)}</td>
+      <td data-label=""><button class="btn ghost" data-del-bul="${b.id}">Hapus</button></td>
     </tr>`).join('');
 }
 
@@ -672,10 +695,10 @@ function renderRekap(){
       const {masuk,keluar} = monthlyMasukKeluar(m);
       const labaRugi = masuk-keluar;
       return `<tr>
-        <td class="mono">${monthLabel(m)}</td>
-        <td class="mono" style="text-align:right;color:var(--gold-deep);">${rp(masuk)}</td>
-        <td class="mono" style="text-align:right;color:var(--rust);">${rp(keluar)}</td>
-        <td class="mono" style="text-align:right; font-weight:600; color:${labaRugi>=0?'var(--gold-deep)':'var(--rust)'};">${rp(labaRugi)}</td>
+        <td class="mono" data-label="Bulan">${monthLabel(m)}</td>
+        <td class="mono" data-label="Masuk" style="text-align:right;color:var(--gold-deep);">${rp(masuk)}</td>
+        <td class="mono" data-label="Keluar" style="text-align:right;color:var(--rust);">${rp(keluar)}</td>
+        <td class="mono" data-label="Untung/Rugi" style="text-align:right; font-weight:600; color:${labaRugi>=0?'var(--gold-deep)':'var(--rust)'};">${rp(labaRugi)}</td>
       </tr>`;
     }).join('');
   }
