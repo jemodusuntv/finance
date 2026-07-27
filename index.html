@@ -33,7 +33,6 @@
   .mono{font-family:'IBM Plex Mono',monospace; font-variant-numeric: tabular-nums;}
   h1,h2,h3,.brand{font-family:'Fraunces',serif;}
 
-  /* ledger stitch signature */
   .app{
     max-width:1040px;
     margin:0 auto;
@@ -183,11 +182,10 @@
   .tag.keluar{ background:var(--rust-soft); color:var(--rust); }
   .empty{ text-align:center; padding:30px 10px; color:var(--ink-soft); font-size:13.5px; }
   .chart-wrap{ position:relative; height:280px; }
-  .row-actions{ display:flex; gap:6px; }
-  .video-card{ border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:10px; }
-  .video-card h3{ margin:0 0 4px; font-size:15.5px; }
-  .video-meta{ display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:var(--ink-soft); margin-bottom:6px; }
-  .video-meta b{ color:var(--ink); font-family:'IBM Plex Mono',monospace; }
+  .video-link{
+    display:inline-block; max-width:180px; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; vertical-align:bottom; color:var(--gold-deep); font-size:12.5px;
+  }
   footer.note{ text-align:center; font-size:12px; color:var(--ink-soft); padding-top:10px; }
   .hidden{ display:none !important; }
   .loading{ text-align:center; padding:40px; color:var(--ink-soft); }
@@ -236,7 +234,6 @@
   <nav id="navTabs">
     <button data-tab="dashboard" class="active">Dashboard</button>
     <button data-tab="transaksi">Transaksi</button>
-    <button data-tab="video">Modal Video</button>
     <button data-tab="bulanan">Pendapatan Bulanan</button>
     <button data-tab="rekap">Rekap</button>
   </nav>
@@ -263,7 +260,7 @@
     <div class="tab-panel hidden" id="tab-transaksi">
       <section class="panel">
         <h2>Tambah Transaksi</h2>
-        <div class="sub">Catat setiap uang masuk atau keluar</div>
+        <div class="sub">Catat uang masuk atau keluar. Tempel link video YouTube kalau transaksi ini terkait video tertentu (misal biaya pembuatan video).</div>
         <form class="grid" id="formTrx">
           <div><label>Tanggal</label><input type="date" id="trxTanggal" required></div>
           <div><label>Tipe</label>
@@ -276,8 +273,9 @@
             <select id="trxKategori"></select>
           </div>
           <div><label>Jumlah (Rp)</label><input type="number" id="trxJumlah" min="0" step="1000" required></div>
-          <div><label>Terkait Video (opsional)</label>
-            <select id="trxVideo"><option value="">— tidak ada —</option></select>
+          <div style="grid-column:1/-1;"><label>Link Video YouTube (opsional)</label>
+            <input type="url" id="trxVideoLink" list="videoLinkSuggestions" placeholder="https://youtu.be/xxxxxxx">
+            <datalist id="videoLinkSuggestions"></datalist>
           </div>
           <div style="grid-column:1/-1;"><label>Keterangan</label><input type="text" id="trxKet" placeholder="cth: Sewa perahu untuk shooting sidat"></div>
           <div><button class="btn gold" type="submit">Simpan Transaksi</button></div>
@@ -293,24 +291,15 @@
         </table>
         </div>
       </section>
-    </div>
-
-    <!-- VIDEO -->
-    <div class="tab-panel hidden" id="tab-video">
       <section class="panel">
-        <h2>Tambah Video</h2>
-        <div class="sub">Catat modal produksi tiap video. Pendapatan video dihitung otomatis dari transaksi "Masuk" yang ditautkan ke video ini.</div>
-        <form class="grid" id="formVideo">
-          <div><label>Judul Video</label><input type="text" id="vidJudul" placeholder="cth: Mancing Sidat 3 Hari" required></div>
-          <div><label>Tanggal</label><input type="date" id="vidTanggal" required></div>
-          <div><label>Modal Produksi (Rp)</label><input type="number" id="vidModal" min="0" step="1000" required></div>
-          <div style="grid-column:1/-1;"><label>Catatan</label><input type="text" id="vidCatatan" placeholder="opsional"></div>
-          <div><button class="btn gold" type="submit">Simpan Video</button></div>
-        </form>
-      </section>
-      <section class="panel">
-        <h2>Daftar Video &amp; Untung Rugi</h2>
-        <div id="videoList"></div>
+        <h2>Rekap per Video</h2>
+        <div class="sub">Otomatis dikelompokkan dari transaksi yang ditautkan ke link video yang sama</div>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Video</th><th style="text-align:right;">Biaya</th><th style="text-align:right;">Pendapatan</th><th style="text-align:right;">Untung/Rugi</th><th style="text-align:right;">Transaksi</th></tr></thead>
+          <tbody id="videoRekapBody"></tbody>
+        </table>
+        </div>
       </section>
     </div>
 
@@ -362,7 +351,7 @@
 </div>
 
 <script>
-let DB = { transaksi: [], video: [], bulanan: [] };
+let DB = { transaksi: [], bulanan: [] };
 
 const KATEGORI = {
   masuk: ["AdSense","Sponsor","Affiliate","Jual Produk","Lainnya"],
@@ -404,14 +393,8 @@ async function loadData(){
   try{
     const {data, error} = await sb.from('transaksi').select('*').order('tanggal', {ascending:false});
     if(error) throw error;
-    DB.transaksi = (data||[]).map(r=>({ id:r.id, tanggal:r.tanggal, tipe:r.tipe, kategori:r.kategori, jumlah:Number(r.jumlah), keterangan:r.keterangan, videoId:r.video_id }));
+    DB.transaksi = (data||[]).map(r=>({ id:r.id, tanggal:r.tanggal, tipe:r.tipe, kategori:r.kategori, jumlah:Number(r.jumlah), keterangan:r.keterangan, videoLink:r.video_id }));
   }catch(e){ console.error('load transaksi', e); DB.transaksi = []; }
-
-  try{
-    const {data, error} = await sb.from('video').select('*').order('tanggal', {ascending:false});
-    if(error) throw error;
-    DB.video = (data||[]).map(r=>({ id:r.id, judul:r.judul, tanggal:r.tanggal, modal:Number(r.modal), catatan:r.catatan }));
-  }catch(e){ console.error('load video', e); DB.video = []; }
 
   try{
     const {data, error} = await sb.from('pendapatan_bulanan').select('*').order('bulan', {ascending:false});
@@ -421,20 +404,12 @@ async function loadData(){
 }
 
 async function insertTransaksi(item){
-  const {error} = await sb.from('transaksi').insert({ id:item.id, tanggal:item.tanggal, tipe:item.tipe, kategori:item.kategori, jumlah:item.jumlah, keterangan:item.keterangan, video_id:item.videoId || null });
+  const {error} = await sb.from('transaksi').insert({ id:item.id, tanggal:item.tanggal, tipe:item.tipe, kategori:item.kategori, jumlah:item.jumlah, keterangan:item.keterangan, video_id:item.videoLink || null });
   if(error) console.error('insert transaksi', error);
 }
 async function deleteTransaksiRow(id){
   const {error} = await sb.from('transaksi').delete().eq('id', id);
   if(error) console.error('delete transaksi', error);
-}
-async function insertVideo(item){
-  const {error} = await sb.from('video').insert({ id:item.id, judul:item.judul, tanggal:item.tanggal, modal:item.modal, catatan:item.catatan });
-  if(error) console.error('insert video', error);
-}
-async function deleteVideoRow(id){
-  const {error} = await sb.from('video').delete().eq('id', id);
-  if(error) console.error('delete video', error);
 }
 async function insertBulanan(item){
   const {error} = await sb.from('pendapatan_bulanan').insert({ id:item.id, bulan:item.bulan, sumber:item.sumber, jumlah:item.jumlah, catatan:item.catatan });
@@ -505,17 +480,30 @@ function totalAll(){
   return {masuk, keluar, saldo: masuk-keluar};
 }
 
+function rekapPerVideo(){
+  const map = {};
+  DB.transaksi.forEach(t=>{
+    if(!t.videoLink) return;
+    if(!map[t.videoLink]) map[t.videoLink] = { link:t.videoLink, masuk:0, keluar:0, count:0, lastDate:t.tanggal };
+    if(t.tipe==='masuk') map[t.videoLink].masuk += t.jumlah; else map[t.videoLink].keluar += t.jumlah;
+    map[t.videoLink].count++;
+    if(t.tanggal > map[t.videoLink].lastDate) map[t.videoLink].lastDate = t.tanggal;
+  });
+  return Object.values(map).sort((a,b)=>b.lastDate.localeCompare(a.lastDate));
+}
+
 // ---------- DASHBOARD ----------
 let chartDashInstance=null, chartRekapInstance=null;
 
 function renderDashboard(){
   const {masuk,keluar,saldo} = totalAll();
+  const jumlahVideo = rekapPerVideo().length;
   const cards = document.getElementById('dashCards');
   cards.innerHTML = `
     <div class="card pos"><div class="label">Total Masuk</div><div class="value mono">${rp(masuk)}</div></div>
     <div class="card neg"><div class="label">Total Keluar</div><div class="value mono">${rp(keluar)}</div></div>
     <div class="card ${saldo>=0?'pos':'neg'}"><div class="label">Untung / Rugi Bersih</div><div class="value mono">${rp(saldo)}</div></div>
-    <div class="card"><div class="label">Jumlah Video Tercatat</div><div class="value mono">${DB.video.length}</div></div>
+    <div class="card"><div class="label">Video Tertaut</div><div class="value mono">${jumlahVideo}</div></div>
   `;
 
   const months = allMonths().slice(-6);
@@ -558,9 +546,10 @@ function refreshKategoriOptions(){
   const sel = document.getElementById('trxKategori');
   sel.innerHTML = KATEGORI[tipe].map(k=>`<option value="${k}">${k}</option>`).join('');
 }
-function refreshVideoOptions(){
-  const sel = document.getElementById('trxVideo');
-  sel.innerHTML = '<option value="">— tidak ada —</option>' + DB.video.map(v=>`<option value="${v.id}">${v.judul}</option>`).join('');
+function refreshVideoLinkSuggestions(){
+  const list = document.getElementById('videoLinkSuggestions');
+  const links = Array.from(new Set(DB.transaksi.map(t=>t.videoLink).filter(Boolean)));
+  list.innerHTML = links.map(l=>`<option value="${l}"></option>`).join('');
 }
 
 document.getElementById('trxTipe').addEventListener('change', refreshKategoriOptions);
@@ -574,12 +563,13 @@ document.getElementById('formTrx').addEventListener('submit', async (e)=>{
     kategori: document.getElementById('trxKategori').value,
     jumlah: parseFloat(document.getElementById('trxJumlah').value)||0,
     keterangan: document.getElementById('trxKet').value.trim(),
-    videoId: document.getElementById('trxVideo').value || null
+    videoLink: document.getElementById('trxVideoLink').value.trim() || null
   };
   DB.transaksi.unshift(item);
   await insertTransaksi(item);
   e.target.reset();
   refreshKategoriOptions();
+  refreshVideoLinkSuggestions();
   document.getElementById('trxTanggal').value = item.tanggal;
   renderTransaksi();
   renderDashboard();
@@ -591,20 +581,18 @@ function renderTransaksi(){
   document.getElementById('trxCount').textContent = sorted.length + ' transaksi tercatat';
   if(sorted.length===0){
     tbody.innerHTML = `<tr><td colspan="7" class="empty">Belum ada transaksi</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = sorted.map(t=>{
-    const vid = DB.video.find(v=>v.id===t.videoId);
-    return `<tr>
+  } else {
+    tbody.innerHTML = sorted.map(t=>`<tr>
       <td class="mono">${t.tanggal}</td>
       <td><span class="tag ${t.tipe}">${t.tipe==='masuk'?'Masuk':'Keluar'}</span></td>
       <td>${t.kategori}</td>
       <td>${t.keterangan||'—'}</td>
-      <td>${vid? vid.judul : '—'}</td>
+      <td>${t.videoLink ? `<a class="video-link" href="${t.videoLink}" target="_blank" rel="noopener">${t.videoLink}</a>` : '—'}</td>
       <td class="mono" style="text-align:right; color:${t.tipe==='masuk'?'var(--gold-deep)':'var(--rust)'};">${rp(t.jumlah)}</td>
       <td><button class="btn ghost" data-del-trx="${t.id}">Hapus</button></td>
-    </tr>`;
-  }).join('');
+    </tr>`).join('');
+  }
+  renderVideoRekap();
 }
 
 document.getElementById('trxTableBody').addEventListener('click', async (e)=>{
@@ -612,71 +600,29 @@ document.getElementById('trxTableBody').addEventListener('click', async (e)=>{
   if(!btn) return;
   DB.transaksi = DB.transaksi.filter(t=>t.id!==btn.dataset.delTrx);
   await deleteTransaksiRow(btn.dataset.delTrx);
+  refreshVideoLinkSuggestions();
   renderTransaksi();
   renderDashboard();
 });
 
-// ---------- VIDEO ----------
-document.getElementById('formVideo').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const item = {
-    id: uid(),
-    judul: document.getElementById('vidJudul').value.trim(),
-    tanggal: document.getElementById('vidTanggal').value,
-    modal: parseFloat(document.getElementById('vidModal').value)||0,
-    catatan: document.getElementById('vidCatatan').value.trim()
-  };
-  DB.video.unshift(item);
-  await insertVideo(item);
-  e.target.reset();
-  refreshVideoOptions();
-  renderVideo();
-  renderDashboard();
-});
-
-function pendapatanVideo(videoId){
-  return DB.transaksi.filter(t=>t.videoId===videoId && t.tipe==='masuk').reduce((s,t)=>s+t.jumlah,0);
-}
-function biayaLainVideo(videoId){
-  return DB.transaksi.filter(t=>t.videoId===videoId && t.tipe==='keluar').reduce((s,t)=>s+t.jumlah,0);
-}
-
-function renderVideo(){
-  const div = document.getElementById('videoList');
-  const sorted = [...DB.video].sort((a,b)=>b.tanggal.localeCompare(a.tanggal));
-  if(sorted.length===0){
-    div.innerHTML = '<div class="empty">Belum ada video tercatat</div>';
+function renderVideoRekap(){
+  const tbody = document.getElementById('videoRekapBody');
+  const rows = rekapPerVideo();
+  if(rows.length===0){
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Belum ada transaksi yang ditautkan ke video</td></tr>`;
     return;
   }
-  div.innerHTML = sorted.map(v=>{
-    const pendapatan = pendapatanVideo(v.id);
-    const biayaLain = biayaLainVideo(v.id);
-    const totalModal = v.modal + biayaLain;
-    const labaRugi = pendapatan - totalModal;
-    return `<div class="video-card">
-      <h3>${v.judul}</h3>
-      <div class="video-meta">
-        <span>Tanggal: <b>${v.tanggal}</b></span>
-        <span>Modal Awal: <b>${rp(v.modal)}</b></span>
-        <span>Biaya Lain: <b>${rp(biayaLain)}</b></span>
-        <span>Pendapatan: <b>${rp(pendapatan)}</b></span>
-        <span>Untung/Rugi: <b style="color:${labaRugi>=0?'var(--gold-deep)':'var(--rust)'};">${rp(labaRugi)}</b></span>
-      </div>
-      ${v.catatan?`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;">${v.catatan}</div>`:''}
-      <button class="btn ghost" data-del-vid="${v.id}">Hapus Video</button>
-    </div>`;
+  tbody.innerHTML = rows.map(r=>{
+    const labaRugi = r.masuk - r.keluar;
+    return `<tr>
+      <td><a class="video-link" href="${r.link}" target="_blank" rel="noopener">${r.link}</a></td>
+      <td class="mono" style="text-align:right;color:var(--rust);">${rp(r.keluar)}</td>
+      <td class="mono" style="text-align:right;color:var(--gold-deep);">${rp(r.masuk)}</td>
+      <td class="mono" style="text-align:right; font-weight:600; color:${labaRugi>=0?'var(--gold-deep)':'var(--rust)'};">${rp(labaRugi)}</td>
+      <td class="mono" style="text-align:right;">${r.count}</td>
+    </tr>`;
   }).join('');
 }
-
-document.getElementById('videoList').addEventListener('click', async (e)=>{
-  const btn = e.target.closest('[data-del-vid]');
-  if(!btn) return;
-  DB.video = DB.video.filter(v=>v.id!==btn.dataset.delVid);
-  await deleteVideoRow(btn.dataset.delVid);
-  refreshVideoOptions();
-  renderVideo();
-  renderDashboard();
-});
 
 // ---------- BULANAN ----------
 document.getElementById('formBulanan').addEventListener('submit', async (e)=>{
@@ -762,14 +708,12 @@ function renderRekap(){
 async function boot(){
   await loadData();
   refreshKategoriOptions();
-  refreshVideoOptions();
+  refreshVideoLinkSuggestions();
   document.getElementById('trxTanggal').value = new Date().toISOString().slice(0,10);
-  document.getElementById('vidTanggal').value = new Date().toISOString().slice(0,10);
   document.getElementById('bulBulan').value = new Date().toISOString().slice(0,7);
 
   renderDashboard();
   renderTransaksi();
-  renderVideo();
   renderBulanan();
 
   document.getElementById('loading').classList.add('hidden');
