@@ -228,10 +228,8 @@
   }
   .lock-box .brand{ font-size:22px; margin-bottom:4px; }
   .lock-box .sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:20px; }
-  #pinInput{
-    width:100%; text-align:center; font-size:22px; letter-spacing:8px;
-    padding:12px; margin-bottom:14px; font-family:'IBM Plex Mono',monospace;
-  }
+  .lock-box label{ text-align:left; }
+  .lock-box input{ margin-bottom:12px; }
   #lockError{ color:var(--rust); font-size:12.5px; min-height:18px; margin-bottom:8px; }
 
   /* pull-to-refresh indicator */
@@ -251,11 +249,14 @@
 <div id="lockScreen">
   <div class="lock-box">
     <div class="brand">Buku Kas Channel</div>
-    <div class="sub">Masukkan PIN untuk membuka</div>
-    <form id="pinForm">
-      <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" autofocus>
+    <div class="sub">Masuk untuk membuka</div>
+    <form id="loginForm">
+      <label>Email</label>
+      <input type="email" id="loginEmail" required autocomplete="username">
+      <label>Password</label>
+      <input type="password" id="loginPassword" required autocomplete="current-password">
       <div id="lockError"></div>
-      <button class="btn gold" type="submit" style="width:100%;">Buka</button>
+      <button class="btn gold" type="submit" style="width:100%;" id="loginSubmitBtn">Masuk</button>
     </form>
   </div>
 </div>
@@ -382,7 +383,7 @@
 
   </div>
 
-  <footer class="note">Data tersimpan di Supabase (jdtvfinance). Salam lestari.</footer>
+  <footer class="note">Data tersimpan di Supabase (jdtvfinance). Salam lestari.<br><button id="logoutBtn" class="btn ghost" style="margin-top:8px;">Keluar</button></footer>
 </div>
 
 <script>
@@ -392,26 +393,14 @@ const KATEGORI_KELUAR = ["Modal Produksi","Peralatan","Transportasi","Editing/Ja
 
 const SUPABASE_URL = 'https://uduofeynrpxngcydftox.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pJ2-kZrnCYInwoJrjcfr0w_aBSaXVDG';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-let PIN_HASH = null;
-
-async function sha256Hex(text){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-async function loadPinHash(){
-  try{
-    const {data, error} = await sb.from('app_settings').select('pin_hash').eq('id','main').single();
-    if(error) throw error;
-    PIN_HASH = data.pin_hash;
-  }catch(e){
-    console.error('load pin', e);
-    document.getElementById('lockError').textContent = 'Gagal memuat pengaturan. Cek koneksi.';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    storage: window.sessionStorage, // sesi hilang begitu browser/tab ditutup total
+    autoRefreshToken: true,
+    detectSessionInUrl: false
   }
-}
-const pinHashPromise = loadPinHash();
+});
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function rp(n){ return "Rp " + Math.round(n).toLocaleString('id-ID'); }
@@ -456,43 +445,43 @@ async function deleteBulananRow(id){
   if(error) console.error('delete bulanan', error);
 }
 
-// ---------- PIN LOCK ----------
-const UNLOCK_KEY = 'jdtvfinance_unlocked';
-
-function isStillUnlocked(){
-  try{ return sessionStorage.getItem(UNLOCK_KEY) === '1'; }catch(e){ return false; }
-}
-function rememberUnlocked(){
-  try{ sessionStorage.setItem(UNLOCK_KEY, '1'); }catch(e){}
-}
+// ---------- LOGIN (Supabase Auth) ----------
 function openApp(){
   document.getElementById('lockScreen').classList.add('hidden');
   document.getElementById('appRoot').classList.remove('hidden');
   boot();
 }
 
-document.getElementById('pinForm').addEventListener('submit', async (e)=>{
+document.getElementById('loginForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const val = document.getElementById('pinInput').value.trim();
-  if(PIN_HASH === null){
-    document.getElementById('lockError').textContent = 'Pengaturan belum siap, coba lagi sebentar.';
-    return;
-  }
-  const inputHash = await sha256Hex(val);
-  if(inputHash === PIN_HASH){
-    rememberUnlocked();
-    openApp();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const submitBtn = document.getElementById('loginSubmitBtn');
+  document.getElementById('lockError').textContent = '';
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Memeriksa…';
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Masuk';
+
+  if(error){
+    document.getElementById('lockError').textContent = 'Email atau password salah.';
   } else {
-    document.getElementById('lockError').textContent = 'PIN salah, coba lagi';
-    document.getElementById('pinInput').value = '';
-    document.getElementById('pinInput').focus();
+    openApp();
   }
 });
 
-// Kalau masih dalam masa "diingat", langsung buka begitu hash PIN selesai dimuat
-(async function checkAutoUnlock(){
-  if(isStillUnlocked()){
-    await pinHashPromise; // tunggu hash PIN selesai dimuat dari load awal
+document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  window.location.reload();
+});
+
+// Kalau sesi login masih ada di sessionStorage (belum tutup browser), langsung masuk
+(async function checkExistingSession(){
+  const { data } = await sb.auth.getSession();
+  if(data && data.session){
     openApp();
   }
 })();
