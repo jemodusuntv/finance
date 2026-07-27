@@ -304,7 +304,7 @@
           <div><label>Kategori</label>
             <select id="trxKategori"></select>
           </div>
-          <div><label>Jumlah (Rp)</label><input type="number" id="trxJumlah" min="0" step="1000" required></div>
+          <div><label>Jumlah (Rp)</label><input type="text" inputmode="numeric" id="trxJumlah" placeholder="0" required></div>
           <div style="grid-column:1/-1;"><label>Link Video YouTube (opsional)</label>
             <input type="url" id="trxVideoLink" list="videoLinkSuggestions" placeholder="https://youtu.be/xxxxxxx">
             <datalist id="videoLinkSuggestions"></datalist>
@@ -347,7 +347,7 @@
         <form class="grid" id="formBulanan">
           <div><label>Bulan</label><input type="month" id="bulBulan" required></div>
           <div><label>Sumber</label><input type="text" id="bulSumber" placeholder="cth: AdSense, Sponsor" required></div>
-          <div><label>Jumlah (Rp)</label><input type="number" id="bulJumlah" min="0" step="1000" required></div>
+          <div><label>Jumlah (Rp)</label><input type="text" inputmode="numeric" id="bulJumlah" placeholder="0" required></div>
           <div style="grid-column:1/-1;"><label>Catatan</label><input type="text" id="bulCatatan" placeholder="opsional"></div>
           <div><button class="btn gold" type="submit">Simpan</button></div>
         </form>
@@ -403,6 +403,24 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+// ---------- format angka otomatis pakai koma (cth: 1,500,000) ----------
+function parseFormattedNumber(str){
+  return parseFloat(String(str||'').replace(/,/g,'')) || 0;
+}
+function formatNumberInputValue(n){
+  const num = Number(n) || 0;
+  return num === 0 ? '' : num.toLocaleString('en-US');
+}
+function attachThousandsFormatting(inputId){
+  const el = document.getElementById(inputId);
+  el.addEventListener('input', ()=>{
+    const raw = el.value.replace(/[^0-9]/g,'');
+    el.value = raw ? Number(raw).toLocaleString('en-US') : '';
+  });
+}
+attachThousandsFormatting('trxJumlah');
+attachThousandsFormatting('bulJumlah');
 function rp(n){ return "Rp " + Math.round(n).toLocaleString('id-ID'); }
 function monthLabel(ym){
   const [y,m]=ym.split('-');
@@ -597,7 +615,7 @@ document.getElementById('formTrx').addEventListener('submit', async (e)=>{
   const formValues = {
     tanggal: document.getElementById('trxTanggal').value,
     kategori: document.getElementById('trxKategori').value,
-    jumlah: parseFloat(document.getElementById('trxJumlah').value)||0,
+    jumlah: parseFormattedNumber(document.getElementById('trxJumlah').value),
     keterangan: document.getElementById('trxKet').value.trim(),
     videoLink: document.getElementById('trxVideoLink').value.trim() || null
   };
@@ -653,7 +671,7 @@ function startEditTrx(id){
   editingTrxId = id;
   document.getElementById('trxTanggal').value = t.tanggal;
   document.getElementById('trxKategori').value = t.kategori;
-  document.getElementById('trxJumlah').value = t.jumlah;
+  document.getElementById('trxJumlah').value = formatNumberInputValue(t.jumlah);
   document.getElementById('trxVideoLink').value = t.videoLink || '';
   document.getElementById('trxKet').value = t.keterangan || '';
   document.getElementById('formTrxHeading').textContent = 'Edit Pengeluaran';
@@ -713,7 +731,7 @@ document.getElementById('formBulanan').addEventListener('submit', async (e)=>{
     id: uid(),
     bulan: document.getElementById('bulBulan').value,
     sumber: document.getElementById('bulSumber').value.trim(),
-    jumlah: parseFloat(document.getElementById('bulJumlah').value)||0,
+    jumlah: parseFormattedNumber(document.getElementById('bulJumlah').value),
     catatan: document.getElementById('bulCatatan').value.trim()
   };
   DB.bulanan.unshift(item);
