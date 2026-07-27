@@ -371,8 +371,26 @@ const KATEGORI = {
 
 const SUPABASE_URL = 'https://uduofeynrpxngcydftox.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_pJ2-kZrnCYInwoJrjcfr0w_aBSaXVDG';
-const APP_PIN = '112233';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let PIN_HASH = null;
+
+async function sha256Hex(text){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function loadPinHash(){
+  try{
+    const {data, error} = await sb.from('app_settings').select('pin_hash').eq('id','main').single();
+    if(error) throw error;
+    PIN_HASH = data.pin_hash;
+  }catch(e){
+    console.error('load pin', e);
+    document.getElementById('lockError').textContent = 'Gagal memuat pengaturan. Cek koneksi.';
+  }
+}
+loadPinHash();
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function rp(n){ return "Rp " + Math.round(n).toLocaleString('id-ID'); }
@@ -428,10 +446,15 @@ async function deleteBulananRow(id){
 }
 
 // ---------- PIN LOCK ----------
-document.getElementById('pinForm').addEventListener('submit', (e)=>{
+document.getElementById('pinForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const val = document.getElementById('pinInput').value.trim();
-  if(val === APP_PIN){
+  if(PIN_HASH === null){
+    document.getElementById('lockError').textContent = 'Pengaturan belum siap, coba lagi sebentar.';
+    return;
+  }
+  const inputHash = await sha256Hex(val);
+  if(inputHash === PIN_HASH){
     document.getElementById('lockScreen').classList.add('hidden');
     document.getElementById('appRoot').classList.remove('hidden');
     boot();
