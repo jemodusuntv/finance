@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buku Kas Channel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF7F0;
+    --paper-alt:#F1ECE0;
+    --ink:#1D3B32;
+    --ink-soft:#4A5F58;
+    --line:#D8CFB8;
+    --gold:#C9963B;
+    --gold-deep:#A6772A;
+    --rust:#A6493B;
+    --rust-soft:#EADAD5;
+    --gold-soft:#F1E3C4;
+    --shadow: 0 1px 0 rgba(29,59,50,0.06);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace; font-variant-numeric: tabular-nums;}
+  h1,h2,h3,.brand{font-family:'Fraunces',serif;}
+
+  /* ledger stitch signature */
+  .app{
+    max-width:1040px;
+    margin:0 auto;
+    padding:0 20px 60px;
+    position:relative;
+  }
+  .app::before{
+    content:"";
+    position:absolute;
+    top:0; bottom:0; left:50%;
+    width:0;
+    border-left:1.5px dashed var(--line);
+    display:none;
+  }
+  @media(min-width:900px){ .app::before{ display:block; } }
+
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    padding:28px 0 18px;
+    border-bottom:2px solid var(--ink);
+    margin-bottom:22px;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  header .brand{ font-size:26px; font-weight:600; letter-spacing:-0.01em; }
+  header .brand span{ color:var(--gold-deep); }
+  header .tagline{ font-size:12.5px; color:var(--ink-soft); letter-spacing:.04em; text-transform:uppercase; }
+
+  nav{
+    display:flex;
+    gap:2px;
+    background:var(--paper-alt);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:4px;
+    margin-bottom:24px;
+    overflow-x:auto;
+  }
+  nav button{
+    flex:1 1 auto;
+    white-space:nowrap;
+    background:transparent;
+    border:none;
+    padding:10px 14px;
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--ink-soft);
+    border-radius:7px;
+    cursor:pointer;
+    transition:.15s;
+  }
+  nav button.active{ background:var(--ink); color:var(--paper); }
+  nav button:not(.active):hover{ background:#e9e2ce; }
+
+  .cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:12px;
+    margin-bottom:26px;
+  }
+  .card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px 18px;
+    box-shadow:var(--shadow);
+  }
+  .card .label{ font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px; }
+  .card .value{ font-size:22px; font-weight:600; }
+  .card.pos .value{ color:var(--gold-deep); }
+  .card.neg .value{ color:var(--rust); }
+
+  section.panel{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px 22px 24px;
+    margin-bottom:20px;
+    box-shadow:var(--shadow);
+  }
+  section.panel h2{
+    font-size:18px;
+    margin:0 0 4px;
+    font-weight:600;
+  }
+  section.panel .sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:16px; }
+
+  form.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px;
+    align-items:end;
+    margin-bottom:6px;
+  }
+  label{ font-size:12px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:.03em; }
+  input,select,textarea{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  input:focus,select:focus,textarea:focus{ outline:2px solid var(--gold); outline-offset:1px; border-color:var(--gold); }
+  .btn{
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    padding:10px 16px;
+    border-radius:8px;
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+    transition:.15s;
+  }
+  .btn:hover{ background:#0f241d; }
+  .btn.gold{ background:var(--gold-deep); }
+  .btn.gold:hover{ background:#8f6521; }
+  .btn.ghost{ background:transparent; color:var(--rust); border:1px solid var(--rust-soft); padding:6px 10px; font-size:12px; }
+  .btn.ghost:hover{ background:var(--rust-soft); }
+
+  table{ width:100%; border-collapse:collapse; margin-top:8px; }
+  th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink-soft);
+    padding:8px 8px;
+    border-bottom:1.5px solid var(--ink);
+  }
+  td{ padding:9px 8px; font-size:13.5px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr:hover td{ background:var(--paper-alt); }
+  .tag{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:20px;
+    font-size:11px;
+    font-weight:600;
+  }
+  .tag.masuk{ background:var(--gold-soft); color:var(--gold-deep); }
+  .tag.keluar{ background:var(--rust-soft); color:var(--rust); }
+  .empty{ text-align:center; padding:30px 10px; color:var(--ink-soft); font-size:13.5px; }
+  .chart-wrap{ position:relative; height:280px; }
+  .row-actions{ display:flex; gap:6px; }
+  .video-card{ border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:10px; }
+  .video-card h3{ margin:0 0 4px; font-size:15.5px; }
+  .video-meta{ display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:var(--ink-soft); margin-bottom:6px; }
+  .video-meta b{ color:var(--ink); font-family:'IBM Plex Mono',monospace; }
+  footer.note{ text-align:center; font-size:12px; color:var(--ink-soft); padding-top:10px; }
+  .hidden{ display:none !important; }
+  .loading{ text-align:center; padding:40px; color:var(--ink-soft); }
+
+  /* PIN lock screen */
+  #lockScreen{
+    position:fixed; inset:0; background:var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    z-index:100; padding:20px;
+  }
+  .lock-box{
+    background:var(--paper); border-radius:16px; padding:32px 30px;
+    width:100%; max-width:320px; text-align:center;
+    box-shadow:0 20px 50px rgba(0,0,0,.3);
+  }
+  .lock-box .brand{ font-size:22px; margin-bottom:4px; }
+  .lock-box .sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:20px; }
+  #pinInput{
+    width:100%; text-align:center; font-size:22px; letter-spacing:8px;
+    padding:12px; margin-bottom:14px; font-family:'IBM Plex Mono',monospace;
+  }
+  #lockError{ color:var(--rust); font-size:12.5px; min-height:18px; margin-bottom:8px; }
+</style>
+</head>
+<body>
+<div id="lockScreen">
+  <div class="lock-box">
+    <div class="brand">Buku Kas Channel</div>
+    <div class="sub">Masukkan PIN untuk membuka</div>
+    <form id="pinForm">
+      <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" autofocus>
+      <div id="lockError"></div>
+      <button class="btn gold" type="submit" style="width:100%;">Buka</button>
+    </form>
+  </div>
+</div>
+
+<div class="app hidden" id="appRoot">
+  <header>
+    <div>
+      <div class="brand">Buku Kas <span>Channel</span></div>
+      <div class="tagline">Catat modal, pendapatan &amp; untung rugi konten</div>
+    </div>
+  </header>
+
+  <nav id="navTabs">
+    <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="transaksi">Transaksi</button>
+    <button data-tab="video">Modal Video</button>
+    <button data-tab="bulanan">Pendapatan Bulanan</button>
+    <button data-tab="rekap">Rekap</button>
+  </nav>
+
+  <div id="loading" class="loading">Memuat data…</div>
+
+  <div id="content" class="hidden">
+
+    <!-- DASHBOARD -->
+    <div class="tab-panel" id="tab-dashboard">
+      <div class="cards" id="dashCards"></div>
+      <section class="panel">
+        <h2>Arus Kas per Bulan</h2>
+        <div class="sub">Perbandingan uang masuk vs keluar, 6 bulan terakhir</div>
+        <div class="chart-wrap"><canvas id="chartDash"></canvas></div>
+      </section>
+      <section class="panel">
+        <h2>Transaksi Terbaru</h2>
+        <div id="recentList"></div>
+      </section>
+    </div>
+
+    <!-- TRANSAKSI -->
+    <div class="tab-panel hidden" id="tab-transaksi">
+      <section class="panel">
+        <h2>Tambah Transaksi</h2>
+        <div class="sub">Catat setiap uang masuk atau keluar</div>
+        <form class="grid" id="formTrx">
+          <div><label>Tanggal</label><input type="date" id="trxTanggal" required></div>
+          <div><label>Tipe</label>
+            <select id="trxTipe">
+              <option value="masuk">Masuk</option>
+              <option value="keluar">Keluar</option>
+            </select>
+          </div>
+          <div><label>Kategori</label>
+            <select id="trxKategori"></select>
+          </div>
+          <div><label>Jumlah (Rp)</label><input type="number" id="trxJumlah" min="0" step="1000" required></div>
+          <div><label>Terkait Video (opsional)</label>
+            <select id="trxVideo"><option value="">— tidak ada —</option></select>
+          </div>
+          <div style="grid-column:1/-1;"><label>Keterangan</label><input type="text" id="trxKet" placeholder="cth: Sewa perahu untuk shooting sidat"></div>
+          <div><button class="btn gold" type="submit">Simpan Transaksi</button></div>
+        </form>
+      </section>
+      <section class="panel">
+        <h2>Riwayat Transaksi</h2>
+        <div class="sub" id="trxCount"></div>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Tanggal</th><th>Tipe</th><th>Kategori</th><th>Keterangan</th><th>Video</th><th style="text-align:right;">Jumlah</th><th></th></tr></thead>
+          <tbody id="trxTableBody"></tbody>
+        </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIDEO -->
+    <div class="tab-panel hidden" id="tab-video">
+      <section class="panel">
+        <h2>Tambah Video</h2>
+        <div class="sub">Catat modal produksi tiap video. Pendapatan video dihitung otomatis dari transaksi "Masuk" yang ditautkan ke video ini.</div>
+        <form class="grid" id="formVideo">
+          <div><label>Judul Video</label><input type="text" id="vidJudul" placeholder="cth: Mancing Sidat 3 Hari" required></div>
+          <div><label>Tanggal</label><input type="date" id="vidTanggal" required></div>
+          <div><label>Modal Produksi (Rp)</label><input type="number" id="vidModal" min="0" step="1000" required></div>
+          <div style="grid-column:1/-1;"><label>Catatan</label><input type="text" id="vidCatatan" placeholder="opsional"></div>
+          <div><button class="btn gold" type="submit">Simpan Video</button></div>
+        </form>
+      </section>
+      <section class="panel">
+        <h2>Daftar Video &amp; Untung Rugi</h2>
+        <div id="videoList"></div>
+      </section>
+    </div>
+
+    <!-- BULANAN -->
+    <div class="tab-panel hidden" id="tab-bulanan">
+      <section class="panel">
+        <h2>Input Pendapatan Channel Bulanan</h2>
+        <div class="sub">Misalnya AdSense, sponsor bulanan, atau total pendapatan platform lain</div>
+        <form class="grid" id="formBulanan">
+          <div><label>Bulan</label><input type="month" id="bulBulan" required></div>
+          <div><label>Sumber</label><input type="text" id="bulSumber" placeholder="cth: AdSense, Sponsor" required></div>
+          <div><label>Jumlah (Rp)</label><input type="number" id="bulJumlah" min="0" step="1000" required></div>
+          <div style="grid-column:1/-1;"><label>Catatan</label><input type="text" id="bulCatatan" placeholder="opsional"></div>
+          <div><button class="btn gold" type="submit">Simpan</button></div>
+        </form>
+      </section>
+      <section class="panel">
+        <h2>Riwayat Pendapatan Bulanan</h2>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Bulan</th><th>Sumber</th><th>Catatan</th><th style="text-align:right;">Jumlah</th><th></th></tr></thead>
+          <tbody id="bulanTableBody"></tbody>
+        </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- REKAP -->
+    <div class="tab-panel hidden" id="tab-rekap">
+      <section class="panel">
+        <h2>Rekap Untung Rugi per Bulan</h2>
+        <div class="sub">Total masuk (transaksi + pendapatan bulanan) dikurangi total keluar</div>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Bulan</th><th style="text-align:right;">Masuk</th><th style="text-align:right;">Keluar</th><th style="text-align:right;">Untung/Rugi</th></tr></thead>
+          <tbody id="rekapTableBody"></tbody>
+        </table>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Grafik Untung Rugi</h2>
+        <div class="chart-wrap"><canvas id="chartRekap"></canvas></div>
+      </section>
+    </div>
+
+  </div>
+
+  <footer class="note">Data tersimpan di Supabase (jdtvfinance). Salam lestari.</footer>
+</div>
+
+<script>
+let DB = { transaksi: [], video: [], bulanan: [] };
+
+const KATEGORI = {
+  masuk: ["AdSense","Sponsor","Affiliate","Jual Produk","Lainnya"],
+  keluar: ["Modal Produksi","Peralatan","Transportasi","Editing/Jasa","Operasional","Lainnya"]
+};
+
+const SUPABASE_URL = 'https://uduofeynrpxngcydftox.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_pJ2-kZrnCYInwoJrjcfr0w_aBSaXVDG';
+const APP_PIN = '112233';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function rp(n){ return "Rp " + Math.round(n).toLocaleString('id-ID'); }
+function monthLabel(ym){
+  const [y,m]=ym.split('-');
+  const names=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+  return names[parseInt(m,10)-1]+" "+y;
+}
+
+async function loadData(){
+  try{
+    const {data, error} = await sb.from('transaksi').select('*').order('tanggal', {ascending:false});
+    if(error) throw error;
+    DB.transaksi = (data||[]).map(r=>({ id:r.id, tanggal:r.tanggal, tipe:r.tipe, kategori:r.kategori, jumlah:Number(r.jumlah), keterangan:r.keterangan, videoId:r.video_id }));
+  }catch(e){ console.error('load transaksi', e); DB.transaksi = []; }
+
+  try{
+    const {data, error} = await sb.from('video').select('*').order('tanggal', {ascending:false});
+    if(error) throw error;
+    DB.video = (data||[]).map(r=>({ id:r.id, judul:r.judul, tanggal:r.tanggal, modal:Number(r.modal), catatan:r.catatan }));
+  }catch(e){ console.error('load video', e); DB.video = []; }
+
+  try{
+    const {data, error} = await sb.from('pendapatan_bulanan').select('*').order('bulan', {ascending:false});
+    if(error) throw error;
+    DB.bulanan = (data||[]).map(r=>({ id:r.id, bulan:r.bulan, sumber:r.sumber, jumlah:Number(r.jumlah), catatan:r.catatan }));
+  }catch(e){ console.error('load bulanan', e); DB.bulanan = []; }
+}
+
+async function insertTransaksi(item){
+  const {error} = await sb.from('transaksi').insert({ id:item.id, tanggal:item.tanggal, tipe:item.tipe, kategori:item.kategori, jumlah:item.jumlah, keterangan:item.keterangan, video_id:item.videoId || null });
+  if(error) console.error('insert transaksi', error);
+}
+async function deleteTransaksiRow(id){
+  const {error} = await sb.from('transaksi').delete().eq('id', id);
+  if(error) console.error('delete transaksi', error);
+}
+async function insertVideo(item){
+  const {error} = await sb.from('video').insert({ id:item.id, judul:item.judul, tanggal:item.tanggal, modal:item.modal, catatan:item.catatan });
+  if(error) console.error('insert video', error);
+}
+async function deleteVideoRow(id){
+  const {error} = await sb.from('video').delete().eq('id', id);
+  if(error) console.error('delete video', error);
+}
+async function insertBulanan(item){
+  const {error} = await sb.from('pendapatan_bulanan').insert({ id:item.id, bulan:item.bulan, sumber:item.sumber, jumlah:item.jumlah, catatan:item.catatan });
+  if(error) console.error('insert bulanan', error);
+}
+async function deleteBulananRow(id){
+  const {error} = await sb.from('pendapatan_bulanan').delete().eq('id', id);
+  if(error) console.error('delete bulanan', error);
+}
+
+// ---------- PIN LOCK ----------
+document.getElementById('pinForm').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const val = document.getElementById('pinInput').value.trim();
+  if(val === APP_PIN){
+    document.getElementById('lockScreen').classList.add('hidden');
+    document.getElementById('appRoot').classList.remove('hidden');
+    boot();
+  } else {
+    document.getElementById('lockError').textContent = 'PIN salah, coba lagi';
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinInput').focus();
+  }
+});
+
+// ---------- TABS ----------
+document.getElementById('navTabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-tab]');
+  if(!btn) return;
+  document.querySelectorAll('#navTabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
+  document.getElementById('tab-'+btn.dataset.tab).classList.remove('hidden');
+  if(btn.dataset.tab==='dashboard') renderDashboard();
+  if(btn.dataset.tab==='rekap') renderRekap();
+});
+
+// ---------- helpers to compute aggregates ----------
+function monthKey(dateStr){ return dateStr.slice(0,7); }
+
+function allMonths(){
+  const set = new Set();
+  DB.transaksi.forEach(t=>set.add(monthKey(t.tanggal)));
+  DB.bulanan.forEach(b=>set.add(b.bulan));
+  return Array.from(set).sort();
+}
+
+function monthlyMasukKeluar(ym){
+  let masuk = 0, keluar = 0;
+  DB.transaksi.forEach(t=>{
+    if(monthKey(t.tanggal)===ym){
+      if(t.tipe==='masuk') masuk += t.jumlah; else keluar += t.jumlah;
+    }
+  });
+  DB.bulanan.forEach(b=>{ if(b.bulan===ym) masuk += b.jumlah; });
+  return {masuk, keluar};
+}
+
+function totalAll(){
+  let masuk=0, keluar=0;
+  DB.transaksi.forEach(t=> t.tipe==='masuk' ? masuk+=t.jumlah : keluar+=t.jumlah);
+  DB.bulanan.forEach(b=> masuk+=b.jumlah);
+  return {masuk, keluar, saldo: masuk-keluar};
+}
+
+// ---------- DASHBOARD ----------
+let chartDashInstance=null, chartRekapInstance=null;
+
+function renderDashboard(){
+  const {masuk,keluar,saldo} = totalAll();
+  const cards = document.getElementById('dashCards');
+  cards.innerHTML = `
+    <div class="card pos"><div class="label">Total Masuk</div><div class="value mono">${rp(masuk)}</div></div>
+    <div class="card neg"><div class="label">Total Keluar</div><div class="value mono">${rp(keluar)}</div></div>
+    <div class="card ${saldo>=0?'pos':'neg'}"><div class="label">Untung / Rugi Bersih</div><div class="value mono">${rp(saldo)}</div></div>
+    <div class="card"><div class="label">Jumlah Video Tercatat</div><div class="value mono">${DB.video.length}</div></div>
+  `;
+
+  const months = allMonths().slice(-6);
+  const labels = months.map(monthLabel);
+  const masukArr = months.map(m=>monthlyMasukKeluar(m).masuk);
+  const keluarArr = months.map(m=>monthlyMasukKeluar(m).keluar);
+
+  const ctx = document.getElementById('chartDash').getContext('2d');
+  if(chartDashInstance) chartDashInstance.destroy();
+  chartDashInstance = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[
+      {label:'Masuk', data:masukArr, backgroundColor:'#C9963B', borderRadius:5},
+      {label:'Keluar', data:keluarArr, backgroundColor:'#A6493B', borderRadius:5},
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom', labels:{font:{family:'Inter'}} } },
+      scales:{ y:{ ticks:{ callback:v=>'Rp '+(v/1000)+'k' } } }
+    }
+  });
+
+  const recent = [...DB.transaksi].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,6);
+  const recentDiv = document.getElementById('recentList');
+  if(recent.length===0){
+    recentDiv.innerHTML = '<div class="empty">Belum ada transaksi. Tambahkan di tab Transaksi.</div>';
+  } else {
+    recentDiv.innerHTML = `<table><tbody>` + recent.map(t=>`
+      <tr>
+        <td class="mono" style="white-space:nowrap;">${t.tanggal}</td>
+        <td><span class="tag ${t.tipe}">${t.tipe==='masuk'?'Masuk':'Keluar'}</span></td>
+        <td>${t.kategori}${t.keterangan?' — '+t.keterangan:''}</td>
+        <td class="mono" style="text-align:right; color:${t.tipe==='masuk'?'var(--gold-deep)':'var(--rust)'};">${rp(t.jumlah)}</td>
+      </tr>`).join('') + `</tbody></table>`;
+  }
+}
+
+// ---------- TRANSAKSI ----------
+function refreshKategoriOptions(){
+  const tipe = document.getElementById('trxTipe').value;
+  const sel = document.getElementById('trxKategori');
+  sel.innerHTML = KATEGORI[tipe].map(k=>`<option value="${k}">${k}</option>`).join('');
+}
+function refreshVideoOptions(){
+  const sel = document.getElementById('trxVideo');
+  sel.innerHTML = '<option value="">— tidak ada —</option>' + DB.video.map(v=>`<option value="${v.id}">${v.judul}</option>`).join('');
+}
+
+document.getElementById('trxTipe').addEventListener('change', refreshKategoriOptions);
+
+document.getElementById('formTrx').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const item = {
+    id: uid(),
+    tanggal: document.getElementById('trxTanggal').value,
+    tipe: document.getElementById('trxTipe').value,
+    kategori: document.getElementById('trxKategori').value,
+    jumlah: parseFloat(document.getElementById('trxJumlah').value)||0,
+    keterangan: document.getElementById('trxKet').value.trim(),
+    videoId: document.getElementById('trxVideo').value || null
+  };
+  DB.transaksi.unshift(item);
+  await insertTransaksi(item);
+  e.target.reset();
+  refreshKategoriOptions();
+  document.getElementById('trxTanggal').value = item.tanggal;
+  renderTransaksi();
+  renderDashboard();
+});
+
+function renderTransaksi(){
+  const tbody = document.getElementById('trxTableBody');
+  const sorted = [...DB.transaksi].sort((a,b)=>b.tanggal.localeCompare(a.tanggal));
+  document.getElementById('trxCount').textContent = sorted.length + ' transaksi tercatat';
+  if(sorted.length===0){
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">Belum ada transaksi</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = sorted.map(t=>{
+    const vid = DB.video.find(v=>v.id===t.videoId);
+    return `<tr>
+      <td class="mono">${t.tanggal}</td>
+      <td><span class="tag ${t.tipe}">${t.tipe==='masuk'?'Masuk':'Keluar'}</span></td>
+      <td>${t.kategori}</td>
+      <td>${t.keterangan||'—'}</td>
+      <td>${vid? vid.judul : '—'}</td>
+      <td class="mono" style="text-align:right; color:${t.tipe==='masuk'?'var(--gold-deep)':'var(--rust)'};">${rp(t.jumlah)}</td>
+      <td><button class="btn ghost" data-del-trx="${t.id}">Hapus</button></td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('trxTableBody').addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-del-trx]');
+  if(!btn) return;
+  DB.transaksi = DB.transaksi.filter(t=>t.id!==btn.dataset.delTrx);
+  await deleteTransaksiRow(btn.dataset.delTrx);
+  renderTransaksi();
+  renderDashboard();
+});
+
+// ---------- VIDEO ----------
+document.getElementById('formVideo').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const item = {
+    id: uid(),
+    judul: document.getElementById('vidJudul').value.trim(),
+    tanggal: document.getElementById('vidTanggal').value,
+    modal: parseFloat(document.getElementById('vidModal').value)||0,
+    catatan: document.getElementById('vidCatatan').value.trim()
+  };
+  DB.video.unshift(item);
+  await insertVideo(item);
+  e.target.reset();
+  refreshVideoOptions();
+  renderVideo();
+  renderDashboard();
+});
+
+function pendapatanVideo(videoId){
+  return DB.transaksi.filter(t=>t.videoId===videoId && t.tipe==='masuk').reduce((s,t)=>s+t.jumlah,0);
+}
+function biayaLainVideo(videoId){
+  return DB.transaksi.filter(t=>t.videoId===videoId && t.tipe==='keluar').reduce((s,t)=>s+t.jumlah,0);
+}
+
+function renderVideo(){
+  const div = document.getElementById('videoList');
+  const sorted = [...DB.video].sort((a,b)=>b.tanggal.localeCompare(a.tanggal));
+  if(sorted.length===0){
+    div.innerHTML = '<div class="empty">Belum ada video tercatat</div>';
+    return;
+  }
+  div.innerHTML = sorted.map(v=>{
+    const pendapatan = pendapatanVideo(v.id);
+    const biayaLain = biayaLainVideo(v.id);
+    const totalModal = v.modal + biayaLain;
+    const labaRugi = pendapatan - totalModal;
+    return `<div class="video-card">
+      <h3>${v.judul}</h3>
+      <div class="video-meta">
+        <span>Tanggal: <b>${v.tanggal}</b></span>
+        <span>Modal Awal: <b>${rp(v.modal)}</b></span>
+        <span>Biaya Lain: <b>${rp(biayaLain)}</b></span>
+        <span>Pendapatan: <b>${rp(pendapatan)}</b></span>
+        <span>Untung/Rugi: <b style="color:${labaRugi>=0?'var(--gold-deep)':'var(--rust)'};">${rp(labaRugi)}</b></span>
+      </div>
+      ${v.catatan?`<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;">${v.catatan}</div>`:''}
+      <button class="btn ghost" data-del-vid="${v.id}">Hapus Video</button>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('videoList').addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-del-vid]');
+  if(!btn) return;
+  DB.video = DB.video.filter(v=>v.id!==btn.dataset.delVid);
+  await deleteVideoRow(btn.dataset.delVid);
+  refreshVideoOptions();
+  renderVideo();
+  renderDashboard();
+});
+
+// ---------- BULANAN ----------
+document.getElementById('formBulanan').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const item = {
+    id: uid(),
+    bulan: document.getElementById('bulBulan').value,
+    sumber: document.getElementById('bulSumber').value.trim(),
+    jumlah: parseFloat(document.getElementById('bulJumlah').value)||0,
+    catatan: document.getElementById('bulCatatan').value.trim()
+  };
+  DB.bulanan.unshift(item);
+  await insertBulanan(item);
+  e.target.reset();
+  renderBulanan();
+  renderDashboard();
+});
+
+function renderBulanan(){
+  const tbody = document.getElementById('bulanTableBody');
+  const sorted = [...DB.bulanan].sort((a,b)=>b.bulan.localeCompare(a.bulan));
+  if(sorted.length===0){
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Belum ada data pendapatan bulanan</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = sorted.map(b=>`
+    <tr>
+      <td class="mono">${monthLabel(b.bulan)}</td>
+      <td>${b.sumber}</td>
+      <td>${b.catatan||'—'}</td>
+      <td class="mono" style="text-align:right; color:var(--gold-deep);">${rp(b.jumlah)}</td>
+      <td><button class="btn ghost" data-del-bul="${b.id}">Hapus</button></td>
+    </tr>`).join('');
+}
+
+document.getElementById('bulanTableBody').addEventListener('click', async (e)=>{
+  const btn = e.target.closest('[data-del-bul]');
+  if(!btn) return;
+  DB.bulanan = DB.bulanan.filter(b=>b.id!==btn.dataset.delBul);
+  await deleteBulananRow(btn.dataset.delBul);
+  renderBulanan();
+  renderDashboard();
+});
+
+// ---------- REKAP ----------
+function renderRekap(){
+  const months = allMonths();
+  const tbody = document.getElementById('rekapTableBody');
+  if(months.length===0){
+    tbody.innerHTML = `<tr><td colspan="4" class="empty">Belum ada data</td></tr>`;
+  } else {
+    tbody.innerHTML = months.map(m=>{
+      const {masuk,keluar} = monthlyMasukKeluar(m);
+      const labaRugi = masuk-keluar;
+      return `<tr>
+        <td class="mono">${monthLabel(m)}</td>
+        <td class="mono" style="text-align:right;color:var(--gold-deep);">${rp(masuk)}</td>
+        <td class="mono" style="text-align:right;color:var(--rust);">${rp(keluar)}</td>
+        <td class="mono" style="text-align:right; font-weight:600; color:${labaRugi>=0?'var(--gold-deep)':'var(--rust)'};">${rp(labaRugi)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const labels = months.map(monthLabel);
+  const labaArr = months.map(m=>{ const {masuk,keluar}=monthlyMasukKeluar(m); return masuk-keluar; });
+  const ctx = document.getElementById('chartRekap').getContext('2d');
+  if(chartRekapInstance) chartRekapInstance.destroy();
+  chartRekapInstance = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'Untung / Rugi', data:labaArr,
+      borderColor:'#1D3B32', backgroundColor:'rgba(201,150,59,0.18)',
+      tension:0.25, fill:true, pointBackgroundColor:'#C9963B', pointRadius:4
+    }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ y:{ ticks:{ callback:v=>'Rp '+(v/1000)+'k' } } }
+    }
+  });
+}
+
+// ---------- BOOT (after PIN unlock) ----------
+async function boot(){
+  await loadData();
+  refreshKategoriOptions();
+  refreshVideoOptions();
+  document.getElementById('trxTanggal').value = new Date().toISOString().slice(0,10);
+  document.getElementById('vidTanggal').value = new Date().toISOString().slice(0,10);
+  document.getElementById('bulBulan').value = new Date().toISOString().slice(0,7);
+
+  renderDashboard();
+  renderTransaksi();
+  renderVideo();
+  renderBulanan();
+
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('content').classList.remove('hidden');
+}
+</script>
+</body>
+</html>
