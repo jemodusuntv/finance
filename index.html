@@ -159,6 +159,10 @@
   .btn.gold:hover{ background:#8f6521; }
   .btn.ghost{ background:transparent; color:var(--rust); border:1px solid var(--rust-soft); padding:6px 10px; font-size:12px; }
   .btn.ghost:hover{ background:var(--rust-soft); }
+  .btn.outline{ background:transparent; border:1px solid var(--ink); color:var(--ink); }
+  .btn.outline:hover{ background:var(--paper-alt); }
+  .btn.small{ padding:6px 10px; font-size:12px; }
+  .row-actions{ display:flex; gap:6px; flex-wrap:wrap; }
 
   table{ width:100%; border-collapse:collapse; margin-top:8px; }
   th{
@@ -292,8 +296,8 @@
     <!-- PENGELUARAN -->
     <div class="tab-panel hidden" id="tab-transaksi">
       <section class="panel">
-        <h2>Tambah Pengeluaran</h2>
-        <div class="sub">Catat setiap biaya/pengeluaran channel. Tempel link video YouTube kalau pengeluaran ini terkait video tertentu (misal biaya pembuatan video).</div>
+        <h2 id="formTrxHeading">Tambah Pengeluaran</h2>
+        <div class="sub" id="formTrxSub">Catat setiap biaya/pengeluaran channel. Tempel link video YouTube kalau pengeluaran ini terkait video tertentu (misal biaya pembuatan video). Belum ada link videonya? Simpan dulu saja, nanti tinggal klik "Edit" di riwayat untuk menambahkan link setelah videonya tayang.</div>
         <form class="grid" id="formTrx">
           <div><label>Tanggal</label><input type="date" id="trxTanggal" required></div>
           <div><label>Kategori</label>
@@ -305,7 +309,10 @@
             <datalist id="videoLinkSuggestions"></datalist>
           </div>
           <div style="grid-column:1/-1;"><label>Keterangan</label><input type="text" id="trxKet" placeholder="cth: Sewa perahu untuk shooting sidat"></div>
-          <div><button class="btn gold" type="submit">Simpan Pengeluaran</button></div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn gold" type="submit" id="formTrxSubmitBtn">Simpan Pengeluaran</button>
+            <button class="btn ghost hidden" type="button" id="formTrxCancelBtn" style="align-self:center;">Batal Edit</button>
+          </div>
         </form>
       </section>
       <section class="panel">
@@ -431,6 +438,10 @@ async function loadData(){
 async function insertTransaksi(item){
   const {error} = await sb.from('transaksi').insert({ id:item.id, tanggal:item.tanggal, tipe:item.tipe, kategori:item.kategori, jumlah:item.jumlah, keterangan:item.keterangan, video_id:item.videoLink || null });
   if(error) console.error('insert transaksi', error);
+}
+async function updateTransaksiRow(item){
+  const {error} = await sb.from('transaksi').update({ tanggal:item.tanggal, kategori:item.kategori, jumlah:item.jumlah, keterangan:item.keterangan, video_id:item.videoLink || null }).eq('id', item.id);
+  if(error) console.error('update transaksi', error);
 }
 async function deleteTransaksiRow(id){
   const {error} = await sb.from('transaksi').delete().eq('id', id);
@@ -594,21 +605,29 @@ function refreshVideoLinkSuggestions(){
 
 document.getElementById('formTrx').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const item = {
-    id: uid(),
+  const formValues = {
     tanggal: document.getElementById('trxTanggal').value,
-    tipe: 'keluar',
     kategori: document.getElementById('trxKategori').value,
     jumlah: parseFloat(document.getElementById('trxJumlah').value)||0,
     keterangan: document.getElementById('trxKet').value.trim(),
     videoLink: document.getElementById('trxVideoLink').value.trim() || null
   };
-  DB.transaksi.unshift(item);
-  await insertTransaksi(item);
-  e.target.reset();
-  refreshKategoriOptions();
+
+  if(editingTrxId){
+    const item = { id: editingTrxId, tipe:'keluar', ...formValues };
+    const idx = DB.transaksi.findIndex(t=>t.id===editingTrxId);
+    if(idx>-1) DB.transaksi[idx] = item;
+    await updateTransaksiRow(item);
+    cancelEditTrx();
+  } else {
+    const item = { id: uid(), tipe:'keluar', ...formValues };
+    DB.transaksi.unshift(item);
+    await insertTransaksi(item);
+    e.target.reset();
+    refreshKategoriOptions();
+    document.getElementById('trxTanggal').value = item.tanggal;
+  }
   refreshVideoLinkSuggestions();
-  document.getElementById('trxTanggal').value = item.tanggal;
   renderTransaksi();
   renderDashboard();
 });
@@ -624,17 +643,59 @@ function renderTransaksi(){
       <td class="mono" data-label="Tanggal">${t.tanggal}</td>
       <td data-label="Kategori">${t.kategori}</td>
       <td data-label="Keterangan">${t.keterangan||'—'}</td>
-      <td data-label="Video">${t.videoLink ? `<a class="video-link" href="${t.videoLink}" target="_blank" rel="noopener">${t.videoLink}</a>` : '—'}</td>
+      <td data-label="Video">${t.videoLink ? `<a class="video-link" href="${t.videoLink}" target="_blank" rel="noopener">${t.videoLink}</a>` : '<span style="color:var(--ink-soft); font-style:italic;">belum ada link</span>'}</td>
       <td class="mono" data-label="Jumlah" style="text-align:right; color:var(--rust);">${rp(t.jumlah)}</td>
-      <td data-label=""><button class="btn ghost" data-del-trx="${t.id}">Hapus</button></td>
+      <td data-label="">
+        <div class="row-actions">
+          <button class="btn outline small" data-edit-trx="${t.id}">Edit</button>
+          <button class="btn ghost" data-del-trx="${t.id}">Hapus</button>
+        </div>
+      </td>
     </tr>`).join('');
   }
   renderVideoRekap();
 }
 
+let editingTrxId = null;
+
+function startEditTrx(id){
+  const t = DB.transaksi.find(x=>x.id===id);
+  if(!t) return;
+  editingTrxId = id;
+  document.getElementById('trxTanggal').value = t.tanggal;
+  document.getElementById('trxKategori').value = t.kategori;
+  document.getElementById('trxJumlah').value = t.jumlah;
+  document.getElementById('trxVideoLink').value = t.videoLink || '';
+  document.getElementById('trxKet').value = t.keterangan || '';
+  document.getElementById('formTrxHeading').textContent = 'Edit Pengeluaran';
+  document.getElementById('formTrxSub').textContent = 'Ubah data pengeluaran ini, misalnya menambahkan link video yang tadinya belum tersedia.';
+  document.getElementById('formTrxSubmitBtn').textContent = 'Update Pengeluaran';
+  document.getElementById('formTrxCancelBtn').classList.remove('hidden');
+  document.getElementById('formTrx').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function cancelEditTrx(){
+  editingTrxId = null;
+  document.getElementById('formTrx').reset();
+  document.getElementById('trxTanggal').value = new Date().toISOString().slice(0,10);
+  refreshKategoriOptions();
+  document.getElementById('formTrxHeading').textContent = 'Tambah Pengeluaran';
+  document.getElementById('formTrxSub').textContent = 'Catat setiap biaya/pengeluaran channel. Tempel link video YouTube kalau pengeluaran ini terkait video tertentu (misal biaya pembuatan video). Belum ada link videonya? Simpan dulu saja, nanti tinggal klik "Edit" di riwayat untuk menambahkan link setelah videonya tayang.';
+  document.getElementById('formTrxSubmitBtn').textContent = 'Simpan Pengeluaran';
+  document.getElementById('formTrxCancelBtn').classList.add('hidden');
+}
+
+document.getElementById('formTrxCancelBtn').addEventListener('click', cancelEditTrx);
+
 document.getElementById('trxTableBody').addEventListener('click', async (e)=>{
+  const editBtn = e.target.closest('[data-edit-trx]');
+  if(editBtn){
+    startEditTrx(editBtn.dataset.editTrx);
+    return;
+  }
   const btn = e.target.closest('[data-del-trx]');
   if(!btn) return;
+  if(editingTrxId === btn.dataset.delTrx) cancelEditTrx();
   DB.transaksi = DB.transaksi.filter(t=>t.id!==btn.dataset.delTrx);
   await deleteTransaksiRow(btn.dataset.delTrx);
   refreshVideoLinkSuggestions();
