@@ -379,7 +379,7 @@ async function loadPinHash(){
     document.getElementById('lockError').textContent = 'Gagal memuat pengaturan. Cek koneksi.';
   }
 }
-loadPinHash();
+const pinHashPromise = loadPinHash();
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function rp(n){ return "Rp " + Math.round(n).toLocaleString('id-ID'); }
@@ -421,6 +421,24 @@ async function deleteBulananRow(id){
 }
 
 // ---------- PIN LOCK ----------
+const UNLOCK_KEY = 'jdtvfinance_unlocked_until';
+const UNLOCK_DURATION_MS = 12 * 60 * 60 * 1000; // 12 jam
+
+function isStillUnlocked(){
+  try{
+    const until = parseInt(localStorage.getItem(UNLOCK_KEY) || '0', 10);
+    return until > Date.now();
+  }catch(e){ return false; }
+}
+function rememberUnlocked(){
+  try{ localStorage.setItem(UNLOCK_KEY, String(Date.now() + UNLOCK_DURATION_MS)); }catch(e){}
+}
+function openApp(){
+  document.getElementById('lockScreen').classList.add('hidden');
+  document.getElementById('appRoot').classList.remove('hidden');
+  boot();
+}
+
 document.getElementById('pinForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const val = document.getElementById('pinInput').value.trim();
@@ -430,15 +448,22 @@ document.getElementById('pinForm').addEventListener('submit', async (e)=>{
   }
   const inputHash = await sha256Hex(val);
   if(inputHash === PIN_HASH){
-    document.getElementById('lockScreen').classList.add('hidden');
-    document.getElementById('appRoot').classList.remove('hidden');
-    boot();
+    rememberUnlocked();
+    openApp();
   } else {
     document.getElementById('lockError').textContent = 'PIN salah, coba lagi';
     document.getElementById('pinInput').value = '';
     document.getElementById('pinInput').focus();
   }
 });
+
+// Kalau masih dalam masa "diingat", langsung buka begitu hash PIN selesai dimuat
+(async function checkAutoUnlock(){
+  if(isStillUnlocked()){
+    await pinHashPromise; // tunggu hash PIN selesai dimuat dari load awal
+    openApp();
+  }
+})();
 
 // ---------- TABS ----------
 document.getElementById('navTabs').addEventListener('click', (e)=>{
