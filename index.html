@@ -206,6 +206,128 @@
   .tag.masuk{ background:var(--gold-soft); color:var(--gold-deep); }
   .tag.keluar{ background:var(--rust-soft); color:var(--rust); }
   .empty{ text-align:center; padding:30px 10px; color:var(--ink-soft); font-size:13.5px; }
+
+  .calc-card{
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:14px;
+    padding:20px 22px;
+    margin-bottom:20px;
+    box-shadow:var(--shadow);
+  }
+  .calc-card h2{ color:var(--paper); margin:0 0 4px; }
+  .calc-card .sub{ color:#B9CABF; margin-bottom:16px; }
+  .calc-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:13.5px;
+    padding:6px 0;
+    border-top:1px solid rgba(250,247,240,.14);
+  }
+  .calc-row:first-of-type{ border-top:none; }
+  .calc-row.total{ font-weight:700; font-size:15px; padding-top:10px; }
+  .calc-note{ font-size:12.5px; color:#B9CABF; margin-top:10px; line-height:1.5; }
+  .calc-card input, .calc-card select{
+    background:rgba(250,247,240,.08);
+    border-color:rgba(250,247,240,.25);
+    color:var(--paper);
+  }
+  .calc-card label{ color:#B9CABF; }
+
+  .member-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px 18px;
+    margin-bottom:14px;
+  }
+  .member-card .member-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .member-card .member-name{
+    font-family:'Fraunces',serif;
+    font-size:16px;
+    font-weight:600;
+    border:none;
+    background:none;
+    padding:2px 0;
+    width:100%;
+    color:var(--ink);
+  }
+  .member-card .member-name:focus{ outline:none; border-bottom:1px solid var(--gold); }
+  .progress-bar{
+    height:8px;
+    background:var(--paper-alt);
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background:var(--gold);
+    border-radius:6px 0 0 6px;
+  }
+  .progress-fill.done{ background:var(--ink); }
+  .progress-text{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-top:5px;
+  }
+  .entry-list{ list-style:none; margin:10px 0 0; padding:0; }
+  .entry-list li{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:7px 0;
+    border-top:1px solid var(--line);
+    font-size:13px;
+  }
+  .entry-list .amt{ font-weight:600; white-space:nowrap; margin-left:8px; }
+  .entry-list .amt.bonus{ color:var(--gold-deep); }
+  .entry-add-row{ display:flex; gap:8px; margin-top:10px; }
+  .entry-add-row input{ font-size:13px; padding:8px 9px; }
+  .entry-add-row input.amount{ width:110px; }
+  .entry-add-row input.note{ flex:1; min-width:0; }
+  .bonus-btn{
+    width:100%;
+    margin-top:10px;
+    background:var(--gold-deep);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:9px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .bonus-btn:disabled{ background:var(--paper-alt); color:var(--ink-soft); cursor:default; }
+  .target-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-top:10px;
+  }
+  .target-row input{ width:90px; padding:6px 7px; font-size:12.5px; }
+  .add-member-btn{
+    display:block;
+    width:100%;
+    background:none;
+    border:1.5px dashed var(--line);
+    color:var(--ink-soft);
+    border-radius:12px;
+    padding:11px;
+    font-size:13.5px;
+    cursor:pointer;
+    margin-bottom:6px;
+  }
   .chart-wrap{ position:relative; height:280px; }
   .video-link{
     display:inline-block; max-width:180px; overflow:hidden; text-overflow:ellipsis;
@@ -273,6 +395,7 @@
     <button data-tab="dashboard" class="active">Dashboard</button>
     <button data-tab="transaksi">Pengeluaran</button>
     <button data-tab="bulanan">Pendapatan Bulanan</button>
+    <button data-tab="gaji">Gaji Tim</button>
     <button data-tab="rekap">Rekap</button>
   </nav>
 
@@ -363,6 +486,36 @@
       </section>
     </div>
 
+    <!-- GAJI TIM -->
+    <div class="tab-panel hidden" id="tab-gaji">
+      <section class="panel">
+        <h2 style="margin-bottom:14px;">Bulan yang dilihat</h2>
+        <div style="max-width:220px;">
+          <label>Bulan</label>
+          <input type="month" id="gajiBulan">
+        </div>
+      </section>
+
+      <div class="calc-card" id="calcCard"></div>
+
+      <section class="panel">
+        <h2>Pengaturan Persentase &amp; Batas</h2>
+        <div class="sub">Persentase dihitung dari pendapatan bulanan yang sudah dicatat di tab Pendapatan Bulanan untuk bulan yang sama</div>
+        <form class="grid" id="formGajiSetting">
+          <div><label>Persen gaji tim (%)</label><input type="number" id="gajiPersen" min="0" max="100" step="0.5" required></div>
+          <div><label>Batas maksimum total gaji tim (Rp)</label><input type="text" inputmode="numeric" id="gajiBatas" required></div>
+          <div><button class="btn gold" type="submit">Simpan Pengaturan</button></div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Anggota Tim</h2>
+        <div class="sub">Target manual dipakai kalau pendapatan bulan ini belum diisi di tab Pendapatan Bulanan</div>
+        <div id="memberCards"></div>
+        <button class="add-member-btn" id="addMemberBtn">+ Tambah anggota</button>
+      </section>
+    </div>
+
     <!-- REKAP -->
     <div class="tab-panel hidden" id="tab-rekap">
       <section class="panel">
@@ -387,7 +540,8 @@
 </div>
 
 <script>
-let DB = { transaksi: [], bulanan: [] };
+let DB = { transaksi: [], bulanan: [], timAnggota: [], timGaji: [], timPengaturan: { persen: 25, batasMaks: 15000000 } };
+let gajiBulanAktif = null;
 
 const KATEGORI_KELUAR = ["Modal Produksi","Peralatan","Transportasi","Editing/Jasa","Operasional","Lainnya"];
 
@@ -440,6 +594,24 @@ async function loadData(){
     if(error) throw error;
     DB.bulanan = (data||[]).map(r=>({ id:r.id, bulan:r.bulan, sumber:r.sumber, jumlah:Number(r.jumlah), catatan:r.catatan }));
   }catch(e){ console.error('load bulanan', e); DB.bulanan = []; }
+
+  try{
+    const {data, error} = await sb.from('tim_anggota').select('*').order('created_at', {ascending:true});
+    if(error) throw error;
+    DB.timAnggota = (data||[]).map(r=>({ id:r.id, nama:r.nama, target:Number(r.target) }));
+  }catch(e){ console.error('load tim_anggota', e); DB.timAnggota = []; }
+
+  try{
+    const {data, error} = await sb.from('tim_gaji').select('*').order('created_at', {ascending:true});
+    if(error) throw error;
+    DB.timGaji = (data||[]).map(r=>({ id:r.id, memberId:r.member_id, bulan:r.bulan, jumlah:Number(r.jumlah), catatan:r.catatan, tipe:r.tipe }));
+  }catch(e){ console.error('load tim_gaji', e); DB.timGaji = []; }
+
+  try{
+    const {data, error} = await sb.from('tim_pengaturan').select('*').eq('id', 1).maybeSingle();
+    if(error) throw error;
+    if(data) DB.timPengaturan = { persen:Number(data.persen), batasMaks:Number(data.batas_maks) };
+  }catch(e){ console.error('load tim_pengaturan', e); }
 }
 
 async function insertTransaksi(item){
@@ -461,6 +633,31 @@ async function insertBulanan(item){
 async function deleteBulananRow(id){
   const {error} = await sb.from('pendapatan_bulanan').delete().eq('id', id);
   if(error) console.error('delete bulanan', error);
+}
+
+async function insertTimAnggota(item){
+  const {error} = await sb.from('tim_anggota').insert({ id:item.id, nama:item.nama, target:item.target });
+  if(error) console.error('insert tim_anggota', error);
+}
+async function updateTimAnggotaRow(item){
+  const {error} = await sb.from('tim_anggota').update({ nama:item.nama, target:item.target }).eq('id', item.id);
+  if(error) console.error('update tim_anggota', error);
+}
+async function deleteTimAnggotaRow(id){
+  const {error} = await sb.from('tim_anggota').delete().eq('id', id);
+  if(error) console.error('delete tim_anggota', error);
+}
+async function insertTimGaji(item){
+  const {error} = await sb.from('tim_gaji').insert({ id:item.id, member_id:item.memberId, bulan:item.bulan, jumlah:item.jumlah, catatan:item.catatan, tipe:item.tipe });
+  if(error) console.error('insert tim_gaji', error);
+}
+async function deleteTimGajiRow(id){
+  const {error} = await sb.from('tim_gaji').delete().eq('id', id);
+  if(error) console.error('delete tim_gaji', error);
+}
+async function saveTimPengaturan(persen, batasMaks){
+  const {error} = await sb.from('tim_pengaturan').upsert({ id:1, persen, batas_maks:batasMaks });
+  if(error) console.error('save tim_pengaturan', error);
 }
 
 // ---------- LOGIN (Supabase Auth) ----------
@@ -513,6 +710,7 @@ document.getElementById('navTabs').addEventListener('click', (e)=>{
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
   document.getElementById('tab-'+btn.dataset.tab).classList.remove('hidden');
   if(btn.dataset.tab==='dashboard') renderDashboard();
+  if(btn.dataset.tab==='gaji') renderGajiTim();
   if(btn.dataset.tab==='rekap') renderRekap();
 });
 
@@ -530,6 +728,7 @@ function monthlyMasukKeluar(ym){
   let masuk = 0, keluar = 0;
   DB.transaksi.forEach(t=>{ if(monthKey(t.tanggal)===ym) keluar += t.jumlah; });
   DB.bulanan.forEach(b=>{ if(b.bulan===ym) masuk += b.jumlah; });
+  DB.timGaji.forEach(g=>{ if(g.bulan===ym) keluar += g.jumlah; });
   return {masuk, keluar};
 }
 
@@ -537,7 +736,38 @@ function totalAll(){
   let keluar=0, masuk=0;
   DB.transaksi.forEach(t=> keluar+=t.jumlah);
   DB.bulanan.forEach(b=> masuk+=b.jumlah);
+  DB.timGaji.forEach(g=> keluar+=g.jumlah);
   return {masuk, keluar, saldo: masuk-keluar};
+}
+
+// ---------- GAJI TIM: kalkulator persen dari pendapatan bulanan ----------
+function pendapatanUntukBulan(ym){
+  return DB.bulanan.filter(b=>b.bulan===ym).reduce((s,b)=>s+b.jumlah,0);
+}
+function poolInfoGaji(ym){
+  const pendapatan = pendapatanUntukBulan(ym);
+  const persen = DB.timPengaturan.persen || 0;
+  const batas = DB.timPengaturan.batasMaks || 0;
+  const raw = pendapatan * (persen/100);
+  const capped = raw > batas ? batas : raw;
+  const perOrang = DB.timAnggota.length ? capped / DB.timAnggota.length : 0;
+  return {
+    pendapatan, persen, batas, raw, capped, perOrang,
+    active: pendapatan > 0,
+    status: raw > batas ? 'capped' : 'adjusted',
+  };
+}
+function effectiveTargetGaji(memberId, ym){
+  const info = poolInfoGaji(ym);
+  if(info.active) return info.perOrang;
+  const m = DB.timAnggota.find(m=>m.id===memberId);
+  return m ? m.target : 0;
+}
+function entriesForMember(memberId, ym){
+  return DB.timGaji.filter(g=>g.memberId===memberId && g.bulan===ym);
+}
+function totalGajiMember(memberId, ym){
+  return entriesForMember(memberId, ym).reduce((s,g)=>s+g.jumlah,0);
 }
 
 function rekapPerVideo(){
@@ -558,12 +788,15 @@ let chartDashInstance=null, chartRekapInstance=null;
 function renderDashboard(){
   const {masuk,keluar,saldo} = totalAll();
   const jumlahVideo = rekapPerVideo().length;
+  const bulanIni = new Date().toISOString().slice(0,7);
+  const gajiBulanIni = DB.timGaji.filter(g=>g.bulan===bulanIni).reduce((s,g)=>s+g.jumlah,0);
   const cards = document.getElementById('dashCards');
   cards.innerHTML = `
     <div class="card pos"><div class="label">Total Masuk</div><div class="value mono">${rp(masuk)}</div></div>
     <div class="card neg"><div class="label">Total Keluar</div><div class="value mono">${rp(keluar)}</div></div>
     <div class="card ${saldo>=0?'pos':'neg'}"><div class="label">Untung / Rugi Bersih</div><div class="value mono">${rp(saldo)}</div></div>
     <div class="card"><div class="label">Video Tertaut</div><div class="value mono">${jumlahVideo}</div></div>
+    <div class="card neg"><div class="label">Gaji Tim Bulan Ini</div><div class="value mono">${rp(gajiBulanIni)}</div></div>
   `;
 
   const months = allMonths().slice(-6);
@@ -767,6 +1000,181 @@ document.getElementById('bulanTableBody').addEventListener('click', async (e)=>{
   renderDashboard();
 });
 
+// ---------- GAJI TIM ----------
+function renderGajiTim(){
+  document.getElementById('gajiBulan').value = gajiBulanAktif;
+  document.getElementById('gajiPersen').value = DB.timPengaturan.persen;
+  document.getElementById('gajiBatas').value = formatNumberInputValue(DB.timPengaturan.batasMaks);
+
+  const info = poolInfoGaji(gajiBulanAktif);
+  const calc = document.getElementById('calcCard');
+  calc.innerHTML = `
+    <h2>Hitung Gaji Tim — ${monthLabelFull(gajiBulanAktif)}</h2>
+    <div class="sub">Diambil dari total Pendapatan Bulanan yang sudah dicatat untuk bulan ini</div>
+    <div class="calc-row"><span>Pendapatan bulan ini</span><span class="mono">${rp(info.pendapatan)}</span></div>
+    <div class="calc-row"><span>Hasil ${info.persen}%</span><span class="mono">${rp(info.raw)}</span></div>
+    <div class="calc-row total"><span>Total gaji tim bulan ini</span><span class="mono">${rp(info.capped)}</span></div>
+    <div class="calc-row"><span>Per orang (${DB.timAnggota.length} anggota)</span><span class="mono">${rp(info.perOrang)}</span></div>
+    <div class="calc-note">${
+      !info.active
+        ? 'Pendapatan bulan ini belum diisi di tab Pendapatan Bulanan, jadi target tiap anggota memakai target manual di bawah.'
+        : (info.status === 'capped'
+            ? `Hasil ${info.persen}% melebihi batas Rp${info.batas.toLocaleString('id-ID')}, jadi gaji tim dicukupkan di batas tersebut.`
+            : `Hasil ${info.persen}% masih di bawah batas Rp${info.batas.toLocaleString('id-ID')}, jadi target tiap anggota disesuaikan mengikuti angka ini.`)
+    }</div>
+  `;
+
+  const wrap = document.getElementById('memberCards');
+  if(DB.timAnggota.length===0){
+    wrap.innerHTML = `<div class="empty">Belum ada anggota tim. Tambahkan lewat tombol di bawah.</div>`;
+    return;
+  }
+  wrap.innerHTML = DB.timAnggota.map(m=>{
+    const total = totalGajiMember(m.id, gajiBulanAktif);
+    const target = effectiveTargetGaji(m.id, gajiBulanAktif);
+    const pct = target ? Math.min(100, Math.round((total/target)*100)) : 0;
+    const remaining = target - total;
+    const list = entriesForMember(m.id, gajiBulanAktif);
+    return `
+      <div class="member-card">
+        <div class="member-head">
+          <input class="member-name" value="${escapeAttr(m.nama)}" data-role="member-name" data-id="${m.id}">
+          <button class="btn ghost" data-role="member-del" data-id="${m.id}">Hapus</button>
+        </div>
+        <div class="progress-bar"><div class="progress-fill ${remaining<=0?'done':''}" style="width:${pct}%"></div></div>
+        <div class="progress-text"><span>${rp(total)} dari ${rp(target)}</span><span>${pct}%</span></div>
+        <ul class="entry-list">
+          ${list.length ? list.map(g=>`
+            <li>
+              <span>${g.tipe==='bonus' ? 'Bonus akhir bulan' : (g.catatan || 'Video')}</span>
+              <span style="display:flex;align-items:center;">
+                <span class="amt ${g.tipe==='bonus'?'bonus':''}">${rp(g.jumlah)}</span>
+                <button class="btn ghost small" style="margin-left:8px;" data-role="entry-del" data-id="${g.id}">✕</button>
+              </span>
+            </li>`).join('') : `<li style="border-top:none;color:var(--ink-soft);font-size:12.5px;">Belum ada transaksi bulan ini</li>`}
+        </ul>
+        <div class="entry-add-row">
+          <input type="text" class="amount" placeholder="Jumlah" inputmode="numeric" data-role="entry-amount" data-id="${m.id}">
+          <input type="text" class="note" placeholder="Nama video (opsional)" data-role="entry-note" data-id="${m.id}">
+          <button class="btn gold small" data-role="entry-add" data-id="${m.id}">+</button>
+        </div>
+        <button class="bonus-btn" data-role="member-bonus" data-id="${m.id}" ${remaining<=0?'disabled':''}>
+          ${remaining<=0 ? 'Target tercapai' : 'Genapkan bonus ' + rp(remaining)}
+        </button>
+        <div class="target-row">
+          <span>${info.active ? 'Target manual (nonaktif, kalkulator dipakai):' : 'Target manual/bulan:'}</span>
+          <input type="text" inputmode="numeric" value="${formatNumberInputValue(m.target)}" data-role="member-target" data-id="${m.id}" ${info.active?'disabled':''}>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function monthLabelFull(ym){
+  const [y,m]=ym.split('-');
+  const names=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  return names[parseInt(m,10)-1]+" "+y;
+}
+function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+
+document.getElementById('gajiBulan').addEventListener('change', (e)=>{
+  gajiBulanAktif = e.target.value;
+  renderGajiTim();
+});
+
+document.getElementById('formGajiSetting').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const persen = parseFloat(document.getElementById('gajiPersen').value) || 0;
+  const batas = parseFormattedNumber(document.getElementById('gajiBatas').value);
+  DB.timPengaturan = { persen, batasMaks: batas };
+  await saveTimPengaturan(persen, batas);
+  renderGajiTim();
+});
+
+document.getElementById('addMemberBtn').addEventListener('click', async ()=>{
+  const item = { id: uid(), nama:'Anggota baru', target:5000000 };
+  DB.timAnggota.push(item);
+  await insertTimAnggota(item);
+  renderGajiTim();
+});
+
+document.getElementById('memberCards').addEventListener('change', async (e)=>{
+  const nameEl = e.target.closest('[data-role="member-name"]');
+  if(nameEl){
+    const m = DB.timAnggota.find(x=>x.id===nameEl.dataset.id);
+    if(m){ m.nama = nameEl.value.trim() || 'Tanpa nama'; await updateTimAnggotaRow(m); renderGajiTim(); }
+    return;
+  }
+  const targetEl = e.target.closest('[data-role="member-target"]');
+  if(targetEl){
+    const m = DB.timAnggota.find(x=>x.id===targetEl.dataset.id);
+    const v = parseFormattedNumber(targetEl.value);
+    if(m && v>0){ m.target = v; await updateTimAnggotaRow(m); renderGajiTim(); }
+    return;
+  }
+});
+
+document.getElementById('memberCards').addEventListener('click', async (e)=>{
+  const delMember = e.target.closest('[data-role="member-del"]');
+  if(delMember){
+    const id = delMember.dataset.id;
+    DB.timAnggota = DB.timAnggota.filter(m=>m.id!==id);
+    DB.timGaji = DB.timGaji.filter(g=>g.memberId!==id);
+    await deleteTimAnggotaRow(id);
+    renderGajiTim();
+    return;
+  }
+  const addEntry = e.target.closest('[data-role="entry-add"]');
+  if(addEntry){
+    const id = addEntry.dataset.id;
+    const amountEl = document.querySelector(`[data-role="entry-amount"][data-id="${id}"]`);
+    const noteEl = document.querySelector(`[data-role="entry-note"][data-id="${id}"]`);
+    const amount = parseFormattedNumber(amountEl.value);
+    if(amount>0){
+      const item = { id: uid(), memberId:id, bulan:gajiBulanAktif, jumlah:amount, catatan:noteEl.value.trim(), tipe:'video' };
+      DB.timGaji.push(item);
+      await insertTimGaji(item);
+      renderGajiTim();
+      renderDashboard();
+    }
+    return;
+  }
+  const delEntry = e.target.closest('[data-role="entry-del"]');
+  if(delEntry){
+    const id = delEntry.dataset.id;
+    DB.timGaji = DB.timGaji.filter(g=>g.id!==id);
+    await deleteTimGajiRow(id);
+    renderGajiTim();
+    renderDashboard();
+    return;
+  }
+  const bonusBtn = e.target.closest('[data-role="member-bonus"]');
+  if(bonusBtn){
+    const id = bonusBtn.dataset.id;
+    const target = effectiveTargetGaji(id, gajiBulanAktif);
+    const remaining = target - totalGajiMember(id, gajiBulanAktif);
+    if(remaining>0){
+      const item = { id: uid(), memberId:id, bulan:gajiBulanAktif, jumlah:remaining, catatan:'', tipe:'bonus' };
+      DB.timGaji.push(item);
+      await insertTimGaji(item);
+      renderGajiTim();
+      renderDashboard();
+    }
+    return;
+  }
+});
+
+document.getElementById('memberCards').addEventListener('input', (e)=>{
+  const el = e.target.closest('[data-role="entry-amount"], [data-role="member-target"]');
+  if(!el) return;
+  const raw = el.value.replace(/[^0-9]/g,'');
+  el.value = raw ? Number(raw).toLocaleString('en-US') : '';
+});
+document.getElementById('gajiBatas').addEventListener('input', (e)=>{
+  const el = e.target;
+  const raw = el.value.replace(/[^0-9]/g,'');
+  el.value = raw ? Number(raw).toLocaleString('en-US') : '';
+});
+
 // ---------- REKAP ----------
 function renderRekap(){
   const months = allMonths();
@@ -811,6 +1219,7 @@ async function boot(){
   refreshVideoLinkSuggestions();
   document.getElementById('trxTanggal').value = new Date().toISOString().slice(0,10);
   document.getElementById('bulBulan').value = new Date().toISOString().slice(0,7);
+  gajiBulanAktif = new Date().toISOString().slice(0,7);
 
   renderDashboard();
   renderTransaksi();
@@ -829,6 +1238,7 @@ async function refreshAllData(){
   renderDashboard();
   if(tab==='transaksi') renderTransaksi();
   if(tab==='bulanan') renderBulanan();
+  if(tab==='gaji') renderGajiTim();
   if(tab==='rekap') renderRekap();
 }
 
