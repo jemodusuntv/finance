@@ -31,6 +31,8 @@
     -webkit-font-smoothing:antialiased;
   }
   .mono{font-family:'IBM Plex Mono',monospace; font-variant-numeric: tabular-nums;}
+  .tag-gaji{ display:inline-block; font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:999px; background:rgba(166,73,59,.12); color:var(--rust); }
+  tr.row-gaji td{ background:rgba(166,73,59,.04); }
   h1,h2,h3,.brand{font-family:'Fraunces',serif;}
 
   .app{
@@ -710,6 +712,7 @@ document.getElementById('navTabs').addEventListener('click', (e)=>{
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
   document.getElementById('tab-'+btn.dataset.tab).classList.remove('hidden');
   if(btn.dataset.tab==='dashboard') renderDashboard();
+  if(btn.dataset.tab==='transaksi') renderTransaksi();
   if(btn.dataset.tab==='gaji') renderGajiTim();
   if(btn.dataset.tab==='rekap') renderRekap();
 });
@@ -721,6 +724,7 @@ function allMonths(){
   const set = new Set();
   DB.transaksi.forEach(t=>set.add(monthKey(t.tanggal)));
   DB.bulanan.forEach(b=>set.add(b.bulan));
+  DB.timGaji.forEach(g=>set.add(g.bulan));
   return Array.from(set).sort();
 }
 
@@ -768,6 +772,22 @@ function entriesForMember(memberId, ym){
 }
 function totalGajiMember(memberId, ym){
   return entriesForMember(memberId, ym).reduce((s,g)=>s+g.jumlah,0);
+}
+
+// Gaji tim dalam bentuk baris pengeluaran (hanya untuk ditampilkan, read-only)
+function gajiSebagaiPengeluaran(){
+  return DB.timGaji.map(g=>{
+    const m = DB.timAnggota.find(a=>a.id===g.memberId);
+    const nama = m ? m.nama : 'Anggota terhapus';
+    const tipe = g.tipe==='bonus' ? 'pelunasan/bonus' : 'per video';
+    return {
+      id: 'gaji-'+g.id, isGaji:true,
+      tanggal: g.bulan, // format YYYY-MM
+      kategori: 'Gaji Tim',
+      keterangan: nama + ' (' + tipe + ')' + (g.catatan ? ' — ' + g.catatan : ''),
+      videoLink: '', jumlah: g.jumlah
+    };
+  });
 }
 
 function rekapPerVideo(){
@@ -818,14 +838,14 @@ function renderDashboard(){
     }
   });
 
-  const recent = [...DB.transaksi].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,6);
+  const recent = [...DB.transaksi, ...gajiSebagaiPengeluaran()].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,6);
   const recentDiv = document.getElementById('recentList');
   if(recent.length===0){
     recentDiv.innerHTML = '<div class="empty">Belum ada pengeluaran. Tambahkan di tab Pengeluaran.</div>';
   } else {
     recentDiv.innerHTML = `<table class="responsive"><tbody>` + recent.map(t=>`
       <tr>
-        <td class="mono" data-label="Tanggal" style="white-space:nowrap;">${t.tanggal}</td>
+        <td class="mono" data-label="Tanggal" style="white-space:nowrap;">${t.isGaji ? monthLabel(t.tanggal) : t.tanggal}</td>
         <td data-label="Keterangan">${t.kategori}${t.keterangan?' — '+t.keterangan:''}</td>
         <td class="mono" data-label="Jumlah" style="text-align:right; color:var(--rust);">${rp(t.jumlah)}</td>
       </tr>`).join('') + `</tbody></table>`;
@@ -874,12 +894,24 @@ document.getElementById('formTrx').addEventListener('submit', async (e)=>{
 
 function renderTransaksi(){
   const tbody = document.getElementById('trxTableBody');
-  const sorted = [...DB.transaksi].sort((a,b)=>b.tanggal.localeCompare(a.tanggal));
-  document.getElementById('trxCount').textContent = sorted.length + ' pengeluaran tercatat';
+  const gajiRows = gajiSebagaiPengeluaran();
+  const sorted = [...DB.transaksi, ...gajiRows].sort((a,b)=>b.tanggal.localeCompare(a.tanggal));
+  const totalSemua = sorted.reduce((s,t)=>s+t.jumlah,0);
+  const totalGaji = gajiRows.reduce((s,t)=>s+t.jumlah,0);
+  document.getElementById('trxCount').textContent =
+    DB.transaksi.length + ' pengeluaran + ' + gajiRows.length + ' pembayaran gaji tim tercatat · Total ' + rp(totalSemua) +
+    (gajiRows.length ? ' (termasuk gaji tim ' + rp(totalGaji) + ')' : '');
   if(sorted.length===0){
     tbody.innerHTML = `<tr><td colspan="6" class="empty">Belum ada pengeluaran</td></tr>`;
   } else {
-    tbody.innerHTML = sorted.map(t=>`<tr>
+    tbody.innerHTML = sorted.map(t=> t.isGaji ? `<tr class="row-gaji">
+      <td class="mono" data-label="Bulan">${monthLabel(t.tanggal)}</td>
+      <td data-label="Kategori"><span class="tag-gaji">Gaji Tim</span></td>
+      <td data-label="Keterangan">${t.keterangan}</td>
+      <td data-label="Video"><span style="color:var(--ink-soft);">—</span></td>
+      <td class="mono" data-label="Jumlah" style="text-align:right; color:var(--rust);">${rp(t.jumlah)}</td>
+      <td data-label=""><span style="font-size:11.5px; color:var(--ink-soft); font-style:italic;">ubah di tab Gaji Tim</span></td>
+    </tr>` : `<tr>
       <td class="mono" data-label="Tanggal">${t.tanggal}</td>
       <td data-label="Kategori">${t.kategori}</td>
       <td data-label="Keterangan">${t.keterangan||'—'}</td>
